@@ -34,7 +34,7 @@ pub fn fuzzy_score(query: &str, target: &str) -> i32 {
             } else {
                 0
             };
-            return 120 + boundary_bonus - exact_idx as i32;
+            return (120 + boundary_bonus - exact_idx as i32).max(1);
         }
     }
 

@@ -480,15 +480,48 @@ pub fn parse_cemu_meta_xml(xml: &str) -> Option<String> {
 }
 
 fn extract_xml_tag_value(xml: &str, tag: &str) -> Option<String> {
+    let cleaned = strip_xml_comments(xml);
     let open_prefix = format!("<{tag}");
-    let open_idx = find_ci(xml, &open_prefix)?;
-    let after_open_prefix = &xml[open_idx + open_prefix.len()..];
-    let gt_rel = after_open_prefix.find('>')?;
-    let content_start = &after_open_prefix[gt_rel + 1..];
+    let open_prefix_lower = open_prefix.to_ascii_lowercase();
+    let cleaned_lower = cleaned.to_ascii_lowercase();
 
-    let close_tag = format!("</{tag}>");
-    let close_idx = find_ci(content_start, &close_tag)?;
-    Some(content_start[..close_idx].to_string())
+    let mut search_from = 0usize;
+    while let Some(rel) = cleaned_lower[search_from..].find(&open_prefix_lower) {
+        let open_idx = search_from + rel;
+        let after_name_idx = open_idx + open_prefix.len();
+        let next_ch = cleaned[after_name_idx..].chars().next();
+        if !next_ch.is_some_and(|c| c == '>' || c == '/' || c.is_ascii_whitespace()) {
+            search_from = after_name_idx;
+            continue;
+        }
+        let after_open = &cleaned[after_name_idx..];
+        let gt_rel = after_open.find('>')?;
+        let before_gt = after_open[..gt_rel].trim_end();
+        if before_gt.ends_with('/') {
+            return Some(String::new());
+        }
+        let content_start = &after_open[gt_rel + 1..];
+        let close_tag = format!("</{tag}>");
+        let close_idx = find_ci(content_start, &close_tag)?;
+        return Some(content_start[..close_idx].to_string());
+    }
+    None
+}
+
+fn strip_xml_comments(xml: &str) -> String {
+    let mut out = String::with_capacity(xml.len());
+    let mut rest = xml;
+    while let Some(start) = rest.find("<!--") {
+        out.push_str(&rest[..start]);
+        let after = &rest[start + 4..];
+        if let Some(end) = after.find("-->") {
+            rest = &after[end + 3..];
+        } else {
+            return out;
+        }
+    }
+    out.push_str(rest);
+    out
 }
 
 fn find_ci(haystack: &str, needle: &str) -> Option<usize> {
@@ -499,12 +532,12 @@ fn find_ci(haystack: &str, needle: &str) -> Option<usize> {
 
 fn decode_xml_entities(input: &str) -> String {
     input
-        .replace("&amp;", "&")
         .replace("&apos;", "'")
         .replace("&#39;", "'")
         .replace("&quot;", "\"")
         .replace("&lt;", "<")
         .replace("&gt;", ">")
+        .replace("&amp;", "&")
 }
 
 pub fn build_emulator_launch_args(template: &str, rom_path: &str) -> String {
@@ -734,9 +767,23 @@ pub fn scan_emulator_folder(
             continue;
         }
 
-        let title = derive_emulator_game_title(def.id, &path);
-        let title_key = title.to_lowercase();
-        if !seen_titles.insert(title_key) {
+        let base_title = derive_emulator_game_title(def.id, &path);
+        let disc_label = extract_disc_label(&path);
+        let title = if let Some(ref disc) = disc_label {
+            if base_title.to_ascii_lowercase().contains(&disc.to_ascii_lowercase()) {
+                base_title
+            } else {
+                format!("{base_title} ({disc})")
+            }
+        } else {
+            base_title
+        };
+        let dedup_key = if def.id == "cemu" {
+            title.to_lowercase()
+        } else {
+            format!("{}:{}", title.to_lowercase(), disc_label.unwrap_or_default().to_lowercase())
+        };
+        if !seen_titles.insert(dedup_key) {
             continue;
         }
 
@@ -780,6 +827,22 @@ pub fn scan_emulator_folder(
 
     results.sort_by_key(|g| g.title.to_lowercase());
     Ok(results)
+}
+
+fn extract_disc_label(path: &Path) -> Option<String> {
+    let name = path.file_stem().and_then(|s| s.to_str())?;
+    let lower = name.to_ascii_lowercase();
+    for prefix in ["(disc ", "(cd "] {
+        if let Some(start) = lower.find(prefix) {
+            if let Some(rel_end) = name[start + 1..].find(')') {
+                let inner = name[start + 1..start + 1 + rel_end].trim();
+                if !inner.is_empty() {
+                    return Some(inner.to_string());
+                }
+            }
+        }
+    }
+    None
 }
 
 fn collect_files_recursive(
@@ -1028,7 +1091,7 @@ pub fn scan_pc_games_folder(
 
 fn pick_best_pc_executable(game_dir: &Path, folder_name: &str) -> Option<PathBuf> {
     let mut files = Vec::new();
-    collect_files_recursive(game_dir, 0, 3, 120, &mut files);
+    collect_pc_executables_recursive(game_dir, 0, 4, 500, &mut files);
 
     let folder_norm = normalize_alnum(folder_name);
     let mut best: Option<(i64, PathBuf)> = None;
@@ -1090,6 +1153,51 @@ fn pick_best_pc_executable(game_dir: &Path, folder_name: &str) -> Option<PathBuf
     }
 
     best.map(|(_, path)| path)
+}
+
+fn collect_pc_executables_recursive(
+    dir: &Path,
+    depth: usize,
+    max_depth: usize,
+    max_binaries: usize,
+    out: &mut Vec<PathBuf>,
+) {
+    if out.len() >= max_binaries {
+        return;
+    }
+    let Ok(entries) = fs::read_dir(dir) else {
+        return;
+    };
+    for entry in entries.flatten() {
+        if out.len() >= max_binaries {
+            return;
+        }
+        let Ok(ft) = entry.file_type() else {
+            continue;
+        };
+        if ft.is_symlink() {
+            continue;
+        }
+        let path = entry.path();
+        if ft.is_file() {
+            if let Some(name) = path.file_name().and_then(|n| n.to_str()) {
+                if is_candidate_pc_binary(&path, name) && !is_ignored_pc_binary(name) {
+                    out.push(path);
+                }
+            }
+        } else if ft.is_dir() && depth < max_depth {
+            if let Some(dir_name) = path.file_name().and_then(|n| n.to_str()) {
+                let lower = dir_name.to_ascii_lowercase();
+                if matches!(
+                    lower.as_str(),
+                    "node_modules" | ".git" | "target" | "shadercache" | "__pycache__"
+                ) {
+                    continue;
+                }
+            }
+            collect_pc_executables_recursive(&path, depth + 1, max_depth, max_binaries, out);
+        }
+    }
 }
 
 fn is_candidate_pc_binary(path: &Path, name: &str) -> bool {
@@ -1562,8 +1670,10 @@ fn find_cemu_cover(rom_path: &Path, title: &str, cemu_exe: Option<&str>) -> Opti
                 if let Ok(xml) = fs::read_to_string(&xml_path) {
                     if let Some(tid) = extract_xml_tag_value(&xml, "title_id") {
                         let clean_tid = tid.trim().to_ascii_lowercase();
-                        if clean_tid.len() >= 8 {
-                            title_id_low = Some(clean_tid[clean_tid.len() - 8..].to_string());
+                        let chars: Vec<char> = clean_tid.chars().collect();
+                        if chars.len() >= 8 {
+                            let tail: String = chars[chars.len() - 8..].iter().collect();
+                            title_id_low = Some(tail);
                         }
                     }
                 }
@@ -1864,16 +1974,28 @@ pub fn inspect_game_file(path: &Path) -> AppResult<GameFileInspection> {
         .map(str::to_ascii_lowercase)
         .unwrap_or_default();
 
+    let presets = list_emulator_presets();
     let matched_rom_def = if is_rpcs3_eboot(path) {
         find_emulator_def("rpcs3")
+    } else if ext == "bin" {
+        None
     } else {
         EMULATOR_DEFS
             .iter()
-            .find(|d| d.extensions.contains(&ext.as_str()))
+            .filter(|d| d.extensions.contains(&ext.as_str()))
+            .find(|d| {
+                presets
+                    .iter()
+                    .any(|p| p.id == d.id && p.detected_exe_path.is_some())
+            })
+            .or_else(|| {
+                EMULATOR_DEFS
+                    .iter()
+                    .find(|d| d.extensions.contains(&ext.as_str()))
+            })
     };
 
     if let Some(def) = matched_rom_def {
-        let presets = list_emulator_presets();
         let detected_exe = presets
             .into_iter()
             .find(|p| p.id == def.id)

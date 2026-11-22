@@ -103,6 +103,16 @@ fn tokenize_vdf(input: &str) -> AppResult<Vec<Token>> {
             continue;
         }
 
+        if ch == '[' {
+            chars.next();
+            for c in chars.by_ref() {
+                if c == ']' {
+                    break;
+                }
+            }
+            continue;
+        }
+
         if ch == '{' {
             chars.next();
             tokens.push(Token::LBrace);
@@ -316,6 +326,16 @@ pub fn parse_app_manifest(acf_content: &str, steamapps_dir: &Path) -> AppResult<
         .filter(|s| !s.is_empty())
         .ok_or_else(|| AppError::VdfParse(format!("Fehlender 'name' für AppID {app_id}")))?
         .to_string();
+
+    if let Some(flags_str) = app_state.get_str_ci("StateFlags") {
+        if let Ok(flags) = flags_str.trim().parse::<u32>() {
+            if (flags & 4) == 0 {
+                return Err(AppError::VdfParse(format!(
+                    "AppID {app_id} is not installed (StateFlags={flags})"
+                )));
+            }
+        }
+    }
 
     let installdir = app_state
         .get_str_ci("installdir")
@@ -535,7 +555,7 @@ pub fn scan_steam_roots(roots: &[PathBuf]) -> SteamScanOutput {
 
             match parse_app_manifest(&content, &steamapps_dir) {
                 Ok(mut app) => {
-                    if is_excluded_steam_app(&app.app_id, &app.name) {
+                    if is_excluded_steam_app(&app.app_id, &app.name) || !app.install_dir.is_dir() {
                         continue;
                     }
                     if seen_app_ids.insert(app.app_id.clone()) {

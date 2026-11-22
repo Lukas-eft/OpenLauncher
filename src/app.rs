@@ -107,10 +107,11 @@ impl OpenLauncherApp {
         let covers_dir = app_data_dir.join("covers");
 
         let db = Arc::new(Database::open(&db_path)?);
+        let _ = db.close_open_sessions();
         let tracker = Arc::new(PlaytimeTracker::new());
-        let settings = db.get_settings().unwrap_or_default();
-        let games = db.list_games().unwrap_or_default();
-        let tags = db.list_all_tags().unwrap_or_default();
+        let settings = db.get_settings()?;
+        let games = db.list_games()?;
+        let tags = db.list_all_tags()?;
 
         let (app_tx, app_rx) = mpsc::channel();
         let (tracker_tx, tracker_rx) = mpsc::channel();
@@ -530,6 +531,11 @@ impl OpenLauncherApp {
                         &mut input.cover_is_local,
                         &self.covers_dir,
                     );
+                    let copied_cover = if input.cover_is_local {
+                        input.cover_url.clone()
+                    } else {
+                        None
+                    };
                     match self.db.create_game(input) {
                         Ok(created) => {
                             self.refresh_library();
@@ -541,6 +547,9 @@ impl OpenLauncherApp {
                             );
                         }
                         Err(err) => {
+                            if let Some(ref path) = copied_cover {
+                                remove_cover_if_managed(Path::new(path), &self.covers_dir);
+                            }
                             if let Some(ref mut form) = self.form_modal {
                                 form.is_submitting = false;
                                 form.error = Some(err.to_string());
@@ -554,13 +563,28 @@ impl OpenLauncherApp {
                     }
                 }
                 AppAction::SaveUpdatedGame(mut input) => {
+                    let prev_cover = self
+                        .games
+                        .iter()
+                        .find(|g| g.id == input.id && g.cover_is_local)
+                        .and_then(|g| g.cover_url.clone());
                     ensure_managed_cover(
                         &mut input.cover_url,
                         &mut input.cover_is_local,
                         &self.covers_dir,
                     );
+                    let new_cover = if input.cover_is_local {
+                        input.cover_url.clone()
+                    } else {
+                        None
+                    };
                     match self.db.update_game(input) {
                         Ok(updated) => {
+                            if let Some(ref old_path) = prev_cover {
+                                if new_cover.as_deref() != Some(old_path.as_str()) {
+                                    remove_cover_if_managed(Path::new(old_path), &self.covers_dir);
+                                }
+                            }
                             self.refresh_library();
                             self.form_modal = None;
                             self.push_toast(
@@ -570,6 +594,11 @@ impl OpenLauncherApp {
                             );
                         }
                         Err(err) => {
+                            if let Some(ref path) = new_cover {
+                                if prev_cover.as_deref() != Some(path.as_str()) {
+                                    remove_cover_if_managed(Path::new(path), &self.covers_dir);
+                                }
+                            }
                             if let Some(ref mut form) = self.form_modal {
                                 form.is_submitting = false;
                                 form.error = Some(err.to_string());
@@ -1075,15 +1104,23 @@ impl OpenLauncherApp {
 }
 
 impl eframe::App for OpenLauncherApp {
+    fn on_exit(&mut self, _gl: Option<&eframe::glow::Context>) {
+        let _ = self.db.close_open_sessions();
+    }
+
     fn update(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
         self.drain_background_events(ctx);
 
-        if ctx.input(|i| i.viewport().close_requested())
-            && self.settings.minimize_to_tray
-            && !self.force_quit.load(Ordering::SeqCst)
-        {
-            ctx.send_viewport_cmd(ViewportCommand::CancelClose);
-            ctx.send_viewport_cmd(ViewportCommand::Visible(false));
+        if ctx.input(|i| i.viewport().close_requested()) {
+            if self.settings.minimize_to_tray
+                && self._tray_handle.is_some()
+                && !self.force_quit.load(Ordering::SeqCst)
+            {
+                ctx.send_viewport_cmd(ViewportCommand::CancelClose);
+                ctx.send_viewport_cmd(ViewportCommand::Visible(false));
+            } else {
+                let _ = self.db.close_open_sessions();
+            }
         }
 
         if ctx.input_mut(|i| i.consume_key(egui::Modifiers::COMMAND, egui::Key::K)) {

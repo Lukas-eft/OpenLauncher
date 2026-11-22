@@ -525,7 +525,7 @@ fn show_emulator_tab(
                     let selected = state
                         .selected_preset()
                         .is_some_and(|p| p.id == preset.id);
-                    if preset_card(ui, preset, selected, card_w).clicked() {
+                    if preset_card(ui, preset, selected, card_w).clicked() && !state.emu_scan_busy {
                         state.selected_preset_id = preset.id.clone();
                         state.emu_exe_path =
                             preset.detected_exe_path.clone().unwrap_or_default();
@@ -700,8 +700,7 @@ fn show_emulator_tab(
             state.is_submitting,
         ) {
             if override_exe.is_none()
-                && state
-                    .emu_discovered
+                && items_to_import
                     .iter()
                     .any(|g| g.executable_path.is_none())
             {
@@ -1133,51 +1132,50 @@ fn show_manual_tab(
                 let title = state.title.trim().to_string();
                 if title.is_empty() {
                     state.error = Some("Please enter a game title.".to_string());
-                    return;
-                }
-                if state.platform != Platform::Steam && state.executable_path.trim().is_empty() {
+                } else if state.platform != Platform::Steam
+                    && state.executable_path.trim().is_empty()
+                {
                     state.error = Some(if state.platform == Platform::Emulator {
                         "Please select the emulator executable (e.g. Cemu.exe).".to_string()
                     } else {
                         "Please select an executable file or launcher.".to_string()
                     });
-                    return;
-                }
-
-                state.error = None;
-                state.is_submitting = true;
-
-                if let Some(ref game_id) = state.editing_game_id {
-                    actions.push(AppAction::SaveUpdatedGame(UpdateGameInput {
-                        id: game_id.clone(),
-                        title,
-                        platform: state.platform,
-                        steam_app_id: opt_trimmed(&state.steam_app_id),
-                        executable_path: opt_trimmed(&state.executable_path),
-                        install_dir: opt_trimmed(&state.install_dir),
-                        launch_args: opt_trimmed(&state.launch_args),
-                        working_dir: opt_trimmed(&state.working_dir),
-                        cover_url: opt_trimmed(&state.cover_url),
-                        cover_is_local: state.cover_is_local,
-                        hero_url: state.editing_hero_url.clone(),
-                        is_favorite: state.is_favorite,
-                        tags: state.tags.clone(),
-                    }));
                 } else {
-                    actions.push(AppAction::SaveNewGame(NewGameInput {
-                        title,
-                        platform: state.platform,
-                        steam_app_id: opt_trimmed(&state.steam_app_id),
-                        executable_path: opt_trimmed(&state.executable_path),
-                        install_dir: opt_trimmed(&state.install_dir),
-                        launch_args: opt_trimmed(&state.launch_args),
-                        working_dir: opt_trimmed(&state.working_dir),
-                        cover_url: opt_trimmed(&state.cover_url),
-                        cover_is_local: state.cover_is_local,
-                        hero_url: None,
-                        is_favorite: state.is_favorite,
-                        tags: state.tags.clone(),
-                    }));
+                    state.error = None;
+                    state.is_submitting = true;
+
+                    if let Some(ref game_id) = state.editing_game_id {
+                        actions.push(AppAction::SaveUpdatedGame(UpdateGameInput {
+                            id: game_id.clone(),
+                            title,
+                            platform: state.platform,
+                            steam_app_id: opt_trimmed(&state.steam_app_id),
+                            executable_path: opt_trimmed(&state.executable_path),
+                            install_dir: opt_trimmed(&state.install_dir),
+                            launch_args: opt_trimmed(&state.launch_args),
+                            working_dir: opt_trimmed(&state.working_dir),
+                            cover_url: opt_trimmed(&state.cover_url),
+                            cover_is_local: state.cover_is_local,
+                            hero_url: state.editing_hero_url.clone(),
+                            is_favorite: state.is_favorite,
+                            tags: state.tags.clone(),
+                        }));
+                    } else {
+                        actions.push(AppAction::SaveNewGame(NewGameInput {
+                            title,
+                            platform: state.platform,
+                            steam_app_id: opt_trimmed(&state.steam_app_id),
+                            executable_path: opt_trimmed(&state.executable_path),
+                            install_dir: opt_trimmed(&state.install_dir),
+                            launch_args: opt_trimmed(&state.launch_args),
+                            working_dir: opt_trimmed(&state.working_dir),
+                            cover_url: opt_trimmed(&state.cover_url),
+                            cover_is_local: state.cover_is_local,
+                            hero_url: None,
+                            is_favorite: state.is_favorite,
+                            tags: state.tags.clone(),
+                        }));
+                    }
                 }
             }
 

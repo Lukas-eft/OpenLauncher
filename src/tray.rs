@@ -162,14 +162,16 @@ pub fn configure_windows_frame(_hwnd: isize) {}
 pub fn restore_win32_window(hwnd: isize) {
     use windows_sys::Win32::Foundation::HWND;
     use windows_sys::Win32::UI::WindowsAndMessaging::{
-        SetForegroundWindow, ShowWindow, SW_RESTORE, SW_SHOW,
+        IsIconic, SetForegroundWindow, ShowWindow, SW_RESTORE, SW_SHOW,
     };
 
     let hwnd_ptr = hwnd as HWND;
 
     unsafe {
         let _ = ShowWindow(hwnd_ptr, SW_SHOW);
-        let _ = ShowWindow(hwnd_ptr, SW_RESTORE);
+        if IsIconic(hwnd_ptr) != 0 {
+            let _ = ShowWindow(hwnd_ptr, SW_RESTORE);
+        }
         let _ = SetForegroundWindow(hwnd_ptr);
     }
 }

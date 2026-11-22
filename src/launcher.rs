@@ -74,25 +74,39 @@ impl PlaytimeTracker {
         event_tx: Sender<TrackerEvent>,
         repaint_ctx: Option<egui::Context>,
     ) -> AppResult<ActiveGameStatus> {
-        {
-            let guard = self.active.lock().map_err(|_| {
-                AppError::Internal("Tracker mutex is poisoned".to_string())
-            })?;
-            if guard.contains_key(&game.id) {
-                return Err(AppError::Launch(format!(
-                    "'{}' is already running",
-                    game.title
-                )));
+        let reserved = ActiveGameStatus {
+            game_id: game.id.clone(),
+            title: game.title.clone(),
+            started_at: Utc::now().to_rfc3339(),
+            pid: None,
+        };
+        self.insert_active(reserved)?;
+
+        let result = if game.platform == Platform::Steam && game.steam_app_id.is_some() {
+            let raw_app_id = game.steam_app_id.clone().unwrap_or_default();
+            self.launch_steam_game(game.clone(), &raw_app_id, db, event_tx, repaint_ctx)
+        } else {
+            self.launch_local_game(game.clone(), db, event_tx, repaint_ctx)
+        };
+
+        if result.is_err() {
+            self.remove_active(&game.id);
+        }
+        result
+    }
+
+    fn remove_active(&self, game_id: &str) {
+        if let Ok(mut guard) = self.active.lock() {
+            guard.remove(game_id);
+        }
+    }
+
+    fn update_active_pid(&self, game_id: &str, pid: Option<u32>) {
+        if let Ok(mut guard) = self.active.lock() {
+            if let Some(status) = guard.get_mut(game_id) {
+                status.pid = pid;
             }
         }
-
-        if game.platform == Platform::Steam {
-            if let Some(ref raw_app_id) = game.steam_app_id {
-                return self.launch_steam_game(game.clone(), raw_app_id, db, event_tx, repaint_ctx);
-            }
-        }
-
-        self.launch_local_game(game, db, event_tx, repaint_ctx)
     }
 
     fn launch_steam_game(
@@ -139,7 +153,6 @@ impl PlaytimeTracker {
             pid: None,
         };
 
-        self.insert_active(status.clone())?;
         emit_tracker_event(
             &event_tx,
             repaint_ctx.as_ref(),
@@ -180,7 +193,6 @@ impl PlaytimeTracker {
                 pid: None,
             };
 
-            self.insert_active(status.clone())?;
             emit_tracker_event(
                 &event_tx,
                 repaint_ctx.as_ref(),
@@ -219,7 +231,6 @@ impl PlaytimeTracker {
                 pid: None,
             };
 
-            self.insert_active(status.clone())?;
             emit_tracker_event(
                 &event_tx,
                 repaint_ctx.as_ref(),
@@ -304,10 +315,7 @@ impl PlaytimeTracker {
             pid: Some(child_pid),
         };
 
-        if let Err(err) = self.insert_active(status.clone()) {
-            let _ = db.finish_play_session(session_id, &game.id, &Utc::now().to_rfc3339(), 0);
-            return Err(err);
-        }
+        self.update_active_pid(&game.id, Some(child_pid));
         emit_tracker_event(
             &event_tx,
             repaint_ctx.as_ref(),
@@ -530,16 +538,17 @@ fn monitor_local_process(
     let mut sys = System::new();
     let mut direct_exited = false;
     let mut handoff_deadline: Option<Instant> = None;
+    let mut exit_instant: Option<Instant> = None;
 
     loop {
         if !direct_exited {
-            match child.try_wait() {
-                Ok(Some(_)) | Err(_) => {
-                    direct_exited = true;
-                    tracked_pids.remove(&Pid::from_u32(direct_pid));
+            if let Ok(Some(_)) = child.try_wait() {
+                direct_exited = true;
+                tracked_pids.remove(&Pid::from_u32(direct_pid));
+                exit_instant = Some(Instant::now());
+                if monitor_dir.is_some() {
                     handoff_deadline = Some(Instant::now() + Duration::from_secs(4));
                 }
-                Ok(None) => {}
             }
         }
 
@@ -579,6 +588,7 @@ fn monitor_local_process(
                     if let Some(exe) = proc_info.exe() {
                         if path_starts_with_dir(exe, dir) {
                             tracked_pids.insert(pid);
+                            exit_instant = None;
                         }
                     }
                 }
@@ -593,11 +603,14 @@ fn monitor_local_process(
         thread::sleep(Duration::from_secs(2));
     }
 
-    let duration_seconds = start_instant.elapsed().as_secs() as i64;
+    let elapsed = exit_instant
+        .unwrap_or_else(Instant::now)
+        .saturating_duration_since(start_instant);
+    let duration_seconds = elapsed.as_secs() as i64;
     let ended_at = Utc::now().to_rfc3339();
     let total_playtime = db
         .finish_play_session(session_id, &game.id, &ended_at, duration_seconds)
-        .unwrap_or(game.playtime_seconds + duration_seconds);
+        .unwrap_or(game.playtime_seconds);
 
     remove_active_and_emit(
         &active_map,
@@ -620,12 +633,26 @@ fn monitor_steam_game(
     repaint_ctx: Option<egui::Context>,
     active_map: Arc<Mutex<HashMap<String, ActiveGameStatus>>>,
 ) {
-    let Some(install_dir) = game
+    let resolved_dir = game
         .install_dir
         .as_deref()
         .map(PathBuf::from)
         .filter(|p| is_specific_game_dir(p))
-    else {
+        .or_else(|| {
+            game.working_dir
+                .as_deref()
+                .map(PathBuf::from)
+                .filter(|p| is_specific_game_dir(p))
+        })
+        .or_else(|| {
+            game.executable_path
+                .as_deref()
+                .and_then(|e| Path::new(e).parent())
+                .map(Path::to_path_buf)
+                .filter(|p| is_specific_game_dir(p))
+        });
+
+    let Some(install_dir) = resolved_dir else {
         let now = Utc::now().to_rfc3339();
         let _ = db.touch_last_played(&game.id, &now);
         remove_active_and_emit(
@@ -719,14 +746,16 @@ fn monitor_steam_game(
         }
     }
 
-    let duration_seconds = start_instant.elapsed().as_secs() as i64;
+    let elapsed_seconds = start_instant.elapsed().as_secs() as i64;
     let ended_at = Utc::now().to_rfc3339();
-    let total_playtime = if session_id > 0 {
-        db.finish_play_session(session_id, &game.id, &ended_at, duration_seconds)
-            .unwrap_or(game.playtime_seconds + duration_seconds)
+    let (reported_duration, total_playtime) = if session_id > 0 {
+        match db.finish_play_session(session_id, &game.id, &ended_at, elapsed_seconds) {
+            Ok(total) => (elapsed_seconds, total),
+            Err(_) => (0, game.playtime_seconds),
+        }
     } else {
         let _ = db.touch_last_played(&game.id, &ended_at);
-        game.playtime_seconds
+        (0, game.playtime_seconds)
     };
 
     remove_active_and_emit(
@@ -736,7 +765,7 @@ fn monitor_steam_game(
         RunningGameEvent {
             game_id: game.id,
             session_id,
-            duration_seconds,
+            duration_seconds: reported_duration,
             total_playtime_seconds: total_playtime,
             last_played_at: ended_at,
         },
@@ -952,8 +981,15 @@ pub fn parse_desktop_entry(content: &str) -> AppResult<DesktopEntryPreview> {
 }
 
 fn quote_arg_if_needed(arg: &str) -> String {
-    if arg.is_empty() || arg.chars().any(|c| c.is_ascii_whitespace() || c == '"') {
-        let escaped = arg.replace('"', "\\\"");
+    if arg.is_empty()
+        || arg
+            .chars()
+            .any(|c| c.is_ascii_whitespace() || c == '"' || c == '\'')
+    {
+        let mut escaped = arg.replace('"', "\\\"");
+        if escaped.ends_with('\\') {
+            escaped.push('\\');
+        }
         format!("\"{escaped}\"")
     } else {
         arg.to_string()

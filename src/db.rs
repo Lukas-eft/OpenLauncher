@@ -47,7 +47,9 @@ impl Database {
 
     pub fn open(path: &Path) -> AppResult<Self> {
         if let Some(parent) = path.parent() {
-            fs::create_dir_all(parent)?;
+            if !parent.as_os_str().is_empty() {
+                fs::create_dir_all(parent)?;
+            }
         }
         let conn = Connection::open(path)?;
         conn.pragma_update(None, "journal_mode", "WAL")?;
@@ -242,8 +244,10 @@ impl Database {
                 continue;
             }
 
+            tx.execute_batch("SAVEPOINT item_sp;")?;
             match insert_game_tx(&tx, &input) {
                 Ok(_) => {
+                    tx.execute_batch("RELEASE SAVEPOINT item_sp;")?;
                     if let Some(ref app_id) = input.steam_app_id {
                         let trimmed = app_id.trim();
                         if !trimmed.is_empty() {
@@ -258,7 +262,10 @@ impl Database {
                     }
                     added_count += 1;
                 }
-                Err(err) => errors.push(format!("{}: {err}", input.title)),
+                Err(err) => {
+                    let _ = tx.execute_batch("ROLLBACK TO SAVEPOINT item_sp; RELEASE SAVEPOINT item_sp;");
+                    errors.push(format!("{}: {err}", input.title));
+                }
             }
         }
 
@@ -447,21 +454,23 @@ impl Database {
         let mut conn = self.lock_conn()?;
         let tx = conn.transaction()?;
 
-        tx.execute(
+        let affected = tx.execute(
             "UPDATE play_sessions
              SET ended_at = ?1, duration_seconds = ?2
-             WHERE id = ?3 AND game_id = ?4",
+             WHERE id = ?3 AND game_id = ?4 AND ended_at IS NULL",
             params![ended_at, clamped_duration, session_id, game_id],
         )?;
 
-        tx.execute(
-            "UPDATE games
-             SET playtime_seconds = playtime_seconds + ?1,
-                 last_played_at = ?2,
-                 updated_at = ?2
-             WHERE id = ?3",
-            params![clamped_duration, ended_at, game_id],
-        )?;
+        if affected > 0 {
+            tx.execute(
+                "UPDATE games
+                 SET playtime_seconds = playtime_seconds + ?1,
+                     last_played_at = ?2,
+                     updated_at = ?2
+                 WHERE id = ?3",
+                params![clamped_duration, ended_at, game_id],
+            )?;
+        }
 
         let total: i64 = tx.query_row(
             "SELECT playtime_seconds FROM games WHERE id = ?1",
@@ -471,6 +480,50 @@ impl Database {
 
         tx.commit()?;
         Ok(total)
+    }
+
+    pub fn close_open_sessions(&self) -> AppResult<usize> {
+        let now = Utc::now();
+        let now_str = now.to_rfc3339();
+        let mut conn = self.lock_conn()?;
+        let tx = conn.transaction()?;
+
+        let open_rows: Vec<(i64, String, String)> = {
+            let mut stmt = tx.prepare(
+                "SELECT id, game_id, started_at FROM play_sessions WHERE ended_at IS NULL",
+            )?;
+            let rows = stmt
+                .query_map([], |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)))?
+                .collect::<Result<Vec<_>, _>>()?;
+            rows
+        };
+
+        let mut closed = 0usize;
+        for (session_id, game_id, started_at) in open_rows {
+            let duration = chrono::DateTime::parse_from_rfc3339(&started_at)
+                .map(|dt| (now - dt.with_timezone(&Utc)).num_seconds().max(0))
+                .unwrap_or(0);
+            let affected = tx.execute(
+                "UPDATE play_sessions
+                 SET ended_at = ?1, duration_seconds = ?2
+                 WHERE id = ?3 AND ended_at IS NULL",
+                params![now_str, duration, session_id],
+            )?;
+            if affected > 0 {
+                tx.execute(
+                    "UPDATE games
+                     SET playtime_seconds = playtime_seconds + ?1,
+                         last_played_at = ?2,
+                         updated_at = ?2
+                     WHERE id = ?3",
+                    params![duration, now_str, game_id],
+                )?;
+                closed += 1;
+            }
+        }
+
+        tx.commit()?;
+        Ok(closed)
     }
 
     pub fn touch_last_played(&self, game_id: &str, played_at: &str) -> AppResult<()> {

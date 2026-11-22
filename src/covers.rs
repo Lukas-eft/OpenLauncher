@@ -45,12 +45,8 @@ pub fn ensure_managed_cover(
     };
     let cover_path = Path::new(raw_cover.trim());
     if !is_inside_dir(cover_path, covers_dir) {
-        match copy_cover_to_dir(cover_path, covers_dir) {
-            Ok(copied) => *cover_url = Some(copied),
-            Err(_) => {
-                *cover_url = None;
-                *cover_is_local = false;
-            }
+        if let Ok(copied) = copy_cover_to_dir(cover_path, covers_dir) {
+            *cover_url = Some(copied);
         }
     }
 }
@@ -181,11 +177,16 @@ fn lookup_cached_steam_asset(app_id: &str, is_hero: bool) -> Option<String> {
 fn local_path_to_file_uri(path: &str) -> String {
     let normalized = path.replace('\\', "/");
     if normalized.starts_with("file://") {
-        normalized
-    } else if normalized.starts_with('/') {
-        format!("file://{normalized}")
+        return normalized;
+    }
+    let encoded = normalized
+        .replace('%', "%25")
+        .replace('#', "%23")
+        .replace('?', "%3F");
+    if encoded.starts_with('/') {
+        format!("file://{encoded}")
     } else {
-        format!("file:///{normalized}")
+        format!("file:///{encoded}")
     }
 }
 

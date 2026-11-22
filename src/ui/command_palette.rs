@@ -69,14 +69,16 @@ pub fn show(
         state.selected_index = 0;
     }
 
-    let (arrow_down, arrow_up, enter_pressed, shift_held) = ctx.input(|i| {
+    let (arrow_down, arrow_up, enter_pressed, shift_held, pointer_moved) = ctx.input(|i| {
         (
             i.key_pressed(egui::Key::ArrowDown),
             i.key_pressed(egui::Key::ArrowUp),
             i.key_pressed(egui::Key::Enter),
             i.modifiers.shift,
+            i.pointer.delta().length_sq() > 0.1,
         )
     });
+    let key_navigated = arrow_down || arrow_up;
 
     if !results.is_empty() {
         if arrow_down {
@@ -181,6 +183,8 @@ pub fn show(
                                         game,
                                         selected,
                                         is_running,
+                                        pointer_moved && !key_navigated,
+                                        key_navigated && selected,
                                         || state.selected_index = idx,
                                         actions,
                                     );
@@ -224,18 +228,24 @@ pub fn show(
         });
 }
 
+#[allow(clippy::too_many_arguments)]
 fn palette_row(
     ui: &mut egui::Ui,
     game: &Game,
     selected: bool,
     is_running: bool,
+    allow_hover_select: bool,
+    scroll_into_view: bool,
     mut on_hover_select: impl FnMut(),
     actions: &mut Vec<AppAction>,
 ) {
     let row_w = ui.available_width();
     let (rect, _) = ui.allocate_exact_size(Vec2::new(row_w, 56.0), Sense::hover());
+    if scroll_into_view {
+        ui.scroll_to_rect(rect, None);
+    }
     let hovered = ui.rect_contains_pointer(rect);
-    if hovered {
+    if hovered && allow_hover_select {
         on_hover_select();
     }
 
@@ -281,6 +291,10 @@ fn palette_row(
             TEXT_DIM,
         );
     }
+
+    let row_resp = ui
+        .interact(rect, Id::new(("pal_row", &game.id)), Sense::click())
+        .on_hover_cursor(CursorIcon::PointingHand);
 
     let eye_rect = Rect::from_center_size(
         Pos2::new(rect.right() - 88.0, rect.center().y),
@@ -376,10 +390,10 @@ fn palette_row(
         TEXT_MUTED,
     );
 
-    let row_resp = ui
-        .interact(rect, Id::new(("pal_row", &game.id)), Sense::click())
-        .on_hover_cursor(CursorIcon::PointingHand);
-    if row_resp.clicked() && !eye_resp.hovered() {
+    let pointer_in_eye = ui
+        .input(|i| i.pointer.interact_pos())
+        .is_some_and(|pos| eye_rect.contains(pos));
+    if row_resp.clicked() && !pointer_in_eye {
         if is_running {
             actions.push(AppAction::OpenDetailModal(game.id.clone()));
         } else {

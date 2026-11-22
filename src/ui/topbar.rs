@@ -31,19 +31,10 @@ pub fn show(
     sort: SortOption,
     actions: &mut Vec<AppAction>,
 ) {
-    Frame::NONE
+    let frame_resp = Frame::NONE
         .fill(BG_TOPBAR)
         .inner_margin(Margin::symmetric(20, 10))
         .show(ui, |ui| {
-            let rect = ui.max_rect();
-            ui.painter().line_segment(
-                [
-                    Pos2::new(rect.left() - 20.0, rect.bottom() + 10.0),
-                    Pos2::new(rect.right() + 20.0, rect.bottom() + 10.0),
-                ],
-                Stroke::new(1.0_f32, BORDER_SUBTLE),
-            );
-
             ui.horizontal(|ui| {
                 let avail = ui.available_width();
 
@@ -126,6 +117,15 @@ pub fn show(
                 });
             });
         });
+
+    let topbar_rect = frame_resp.response.rect;
+    ui.painter().line_segment(
+        [
+            Pos2::new(topbar_rect.left(), topbar_rect.bottom()),
+            Pos2::new(topbar_rect.right(), topbar_rect.bottom()),
+        ],
+        Stroke::new(1.0_f32, BORDER_SUBTLE),
+    );
 }
 
 fn segment_chip(ui: &mut egui::Ui, label: &str, active: bool) -> egui::Response {
