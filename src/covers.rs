@@ -70,10 +70,10 @@ pub fn copy_cover_to_dir(src: &Path, covers_dir: &Path) -> AppResult<String> {
         .extension()
         .and_then(|e| e.to_str())
         .map(str::to_ascii_lowercase)
-        .filter(|e| ALLOWED_IMAGE_EXTS.contains(&e.as_str()))
+        .filter(|e| ALLOWED_IMAGE_EXTS.contains(&e.as_str()) || e == "tga")
         .ok_or_else(|| {
             AppError::InvalidInput(
-                "Supported cover formats: PNG, JPG, JPEG, WEBP, GIF, AVIF".to_string(),
+                "Supported cover formats: PNG, JPG, JPEG, WEBP, GIF, AVIF, TGA".to_string(),
             )
         })?;
 
@@ -85,6 +85,16 @@ pub fn copy_cover_to_dir(src: &Path, covers_dir: &Path) -> AppResult<String> {
     }
 
     fs::create_dir_all(covers_dir)?;
+    if ext == "tga" {
+        let img = image::open(src).map_err(|err| {
+            AppError::InvalidInput(format!("Failed to decode TGA image: {err}"))
+        })?;
+        let target_path = covers_dir.join(format!("{}.png", Uuid::new_v4()));
+        img.save_with_format(&target_path, image::ImageFormat::Png)
+            .map_err(|err| AppError::Internal(format!("Failed to save PNG cover: {err}")))?;
+        return Ok(target_path.to_string_lossy().into_owned());
+    }
+
     let target_name = format!("{}.{ext}", Uuid::new_v4());
     let target_path = covers_dir.join(target_name);
     fs::copy(src, &target_path)?;

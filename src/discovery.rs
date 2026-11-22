@@ -1,4 +1,4 @@
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::fs;
 use std::path::{Path, PathBuf};
 
@@ -764,6 +764,16 @@ pub fn scan_emulator_folder(
             path.parent().unwrap_or(rom_dir)
         };
 
+        let cover_path = find_nearby_cover(cover_dir)
+            .or_else(|| {
+                if def.id == "cemu" {
+                    find_cemu_cover(&path, &title, resolved_exe.as_deref())
+                } else {
+                    None
+                }
+            })
+            .map(|p| p.to_string_lossy().into_owned());
+
         let already_imported =
             existing_keys.contains_exe_args(resolved_exe.as_deref(), Some(&launch_args));
 
@@ -776,7 +786,7 @@ pub fn scan_emulator_folder(
             install_dir: path.parent().map(|p| p.to_string_lossy().into_owned()),
             launch_args: Some(launch_args),
             working_dir: working_dir.clone(),
-            cover_path: find_nearby_cover(cover_dir).map(|p| p.to_string_lossy().into_owned()),
+            cover_path,
             cover_url: None,
             hero_url: None,
             tags: def.tags.iter().map(|s| (*s).to_string()).collect(),
@@ -1294,6 +1304,7 @@ fn scan_windows_epic_manifests() -> Vec<DiscoveredGame> {
     let Ok(entries) = fs::read_dir(manifests_dir) else {
         return Vec::new();
     };
+    let catalog_images = load_epic_catalog_images();
     let mut out = Vec::new();
     for entry in entries.flatten() {
         let path = entry.path();
@@ -1301,12 +1312,331 @@ fn scan_windows_epic_manifests() -> Vec<DiscoveredGame> {
             continue;
         }
         if let Ok(content) = fs::read_to_string(&path) {
-            if let Some(item) = parse_epic_manifest(&content) {
+            if let Some(mut item) = parse_epic_manifest(&content) {
+                if let Ok(val) = serde_json::from_str::<Value>(&content) {
+                    let item_id = val
+                        .get("CatalogItemId")
+                        .and_then(Value::as_str)
+                        .map(str::trim)
+                        .unwrap_or("");
+                    if let Some((cover_url, hero_url)) = catalog_images
+                        .get(item_id)
+                        .or_else(|| catalog_images.get(&item.title.to_lowercase()))
+                    {
+                        if item.cover_url.is_none() {
+                            item.cover_url.clone_from(cover_url);
+                        }
+                        if item.hero_url.is_none() {
+                            item.hero_url.clone_from(hero_url);
+                        }
+                    }
+                }
                 out.push(item);
             }
         }
     }
     out
+}
+
+#[cfg(target_os = "windows")]
+fn load_epic_catalog_images() -> HashMap<String, (Option<String>, Option<String>)> {
+    let mut map = HashMap::new();
+    let cache_path = Path::new(r"C:\ProgramData\Epic\EpicGamesLauncher\Data\Catalog\catcache.bin");
+    let Ok(raw) = fs::read_to_string(cache_path) else {
+        return map;
+    };
+    let trimmed = raw.trim();
+    let json_bytes = if trimmed.starts_with('[') {
+        trimmed.as_bytes().to_vec()
+    } else if let Some(decoded) = decode_base64(trimmed) {
+        decoded
+    } else {
+        return map;
+    };
+
+    let Ok(Value::Array(items)) = serde_json::from_slice::<Value>(&json_bytes) else {
+        return map;
+    };
+
+    for entry in items {
+        let Some(images) = entry.get("keyImages").and_then(Value::as_array) else {
+            continue;
+        };
+        let mut tall: Option<String> = None;
+        let mut offer_tall: Option<String> = None;
+        let mut thumb: Option<String> = None;
+        let mut wide: Option<String> = None;
+        let mut featured: Option<String> = None;
+
+        for img in images {
+            let kind = img.get("type").and_then(Value::as_str).unwrap_or("");
+            let Some(url) = img
+                .get("url")
+                .and_then(Value::as_str)
+                .map(str::trim)
+                .filter(|s| !s.is_empty())
+            else {
+                continue;
+            };
+            match kind {
+                "DieselGameBoxTall" => tall = Some(url.to_string()),
+                "OfferImageTall" => offer_tall = Some(url.to_string()),
+                "Thumbnail" => thumb = Some(url.to_string()),
+                "DieselGameBox" => wide = Some(url.to_string()),
+                "OfferImageWide" => {
+                    if wide.is_none() {
+                        wide = Some(url.to_string());
+                    }
+                }
+                "Featured" => featured = Some(url.to_string()),
+                _ => {}
+            }
+        }
+
+        let cover = tall.or(offer_tall).or(thumb).or_else(|| wide.clone());
+        let hero = wide.or(featured);
+        if cover.is_none() && hero.is_none() {
+            continue;
+        }
+
+        if let Some(id) = entry.get("id").and_then(Value::as_str).map(str::trim) {
+            if !id.is_empty() {
+                map.insert(id.to_string(), (cover.clone(), hero.clone()));
+            }
+        }
+        if let Some(title) = entry.get("title").and_then(Value::as_str).map(str::trim) {
+            if !title.is_empty() {
+                map.entry(title.to_lowercase()).or_insert((cover, hero));
+            }
+        }
+    }
+
+    map
+}
+
+#[cfg(target_os = "windows")]
+fn decode_base64(input: &str) -> Option<Vec<u8>> {
+    let mut out = Vec::with_capacity(input.len() * 3 / 4);
+    let mut buf: u32 = 0;
+    let mut bits: u8 = 0;
+    for b in input.bytes() {
+        if b.is_ascii_whitespace() || b == b'=' {
+            continue;
+        }
+        let val = match b {
+            b'A'..=b'Z' => b - b'A',
+            b'a'..=b'z' => b - b'a' + 26,
+            b'0'..=b'9' => b - b'0' + 52,
+            b'+' | b'-' => 62,
+            b'/' | b'_' => 63,
+            _ => return None,
+        };
+        buf = (buf << 6) | u32::from(val);
+        bits += 6;
+        if bits >= 8 {
+            bits -= 8;
+            out.push(((buf >> bits) & 0xff) as u8);
+        }
+    }
+    Some(out)
+}
+
+fn find_cemu_cover(rom_path: &Path, title: &str, cemu_exe: Option<&str>) -> Option<PathBuf> {
+    let mut meta_dirs = Vec::new();
+    let mut title_id_low: Option<String> = None;
+
+    if has_ext(rom_path, "rpx") {
+        if let Some(game_root) = rom_path.parent().and_then(Path::parent) {
+            let local_meta = game_root.join("meta");
+            if local_meta.is_dir() {
+                let xml_path = local_meta.join("meta.xml");
+                if let Ok(xml) = fs::read_to_string(&xml_path) {
+                    if let Some(tid) = extract_xml_tag_value(&xml, "title_id") {
+                        let clean_tid = tid.trim().to_ascii_lowercase();
+                        if clean_tid.len() >= 8 {
+                            title_id_low = Some(clean_tid[clean_tid.len() - 8..].to_string());
+                        }
+                    }
+                }
+                meta_dirs.push(local_meta);
+            }
+        }
+    }
+
+    let mut mlc_bases = Vec::new();
+    if let Some(exe) = cemu_exe {
+        if let Some(dir) = Path::new(exe).parent() {
+            mlc_bases.push(dir.join("mlc01").join("usr").join("title").join("00050000"));
+        }
+    }
+    if let Some(config) = dirs::config_dir() {
+        mlc_bases.push(
+            config
+                .join("Cemu")
+                .join("mlc01")
+                .join("usr")
+                .join("title")
+                .join("00050000"),
+        );
+    }
+    if let Some(data_local) = dirs::data_local_dir() {
+        mlc_bases.push(
+            data_local
+                .join("Cemu")
+                .join("mlc01")
+                .join("usr")
+                .join("title")
+                .join("00050000"),
+        );
+    }
+
+    let title_norm = normalize_alnum(title);
+    for base in mlc_bases {
+        if !base.is_dir() {
+            continue;
+        }
+        if let Some(ref tid_low) = title_id_low {
+            let candidate = base.join(tid_low).join("meta");
+            if candidate.is_dir() {
+                meta_dirs.push(candidate);
+            }
+        }
+        if let Ok(entries) = fs::read_dir(&base) {
+            for entry in entries.flatten() {
+                let mdir = entry.path().join("meta");
+                if !mdir.is_dir() {
+                    continue;
+                }
+                let xml_path = mdir.join("meta.xml");
+                if let Ok(xml) = fs::read_to_string(&xml_path) {
+                    if let Some(meta_title) = parse_cemu_meta_xml(&xml) {
+                        if normalize_alnum(&meta_title) == title_norm {
+                            meta_dirs.push(mdir);
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    for meta_dir in meta_dirs {
+        for name in [
+            "cover.png",
+            "cover.jpg",
+            "bootTvTex.tga",
+            "bootDrcTex.tga",
+            "iconTex.tga",
+        ] {
+            let candidate = meta_dir.join(name);
+            if candidate.is_file() {
+                return Some(candidate);
+            }
+        }
+    }
+
+    None
+}
+
+/// Backfills missing covers/heroes for already-imported Epic Games and Cemu titles in SQLite.
+pub fn backfill_missing_covers(db: &crate::db::Database, covers_dir: &Path) -> usize {
+    let Ok(games) = db.list_games() else {
+        return 0;
+    };
+
+    #[cfg(target_os = "windows")]
+    let epic_images = load_epic_catalog_images();
+    #[cfg(target_os = "windows")]
+    let epic_items = scan_windows_epic_manifests();
+
+    let mut updated = 0usize;
+    for game in games {
+        if game.cover_url.is_some() {
+            continue;
+        }
+
+        let mut next_cover: Option<String> = None;
+        let mut next_cover_local = game.cover_is_local;
+        let mut next_hero = game.hero_url.clone();
+
+        #[cfg(target_os = "windows")]
+        if game.platform == Platform::Manual {
+            let game_exe_norm = game.executable_path.as_deref().map(normalize_key_str);
+            let game_dir_norm = game.install_dir.as_deref().map(normalize_key_str);
+            let matched = epic_items.iter().find(|item| {
+                game_exe_norm
+                    .as_deref()
+                    .zip(item.executable_path.as_deref().map(normalize_key_str).as_deref())
+                    .is_some_and(|(a, b)| a == b)
+                    || game_dir_norm
+                        .as_deref()
+                        .zip(item.install_dir.as_deref().map(normalize_key_str).as_deref())
+                        .is_some_and(|(a, b)| a == b)
+            });
+
+            if let Some(item) = matched {
+                next_cover.clone_from(&item.cover_url);
+                if next_hero.is_none() {
+                    next_hero.clone_from(&item.hero_url);
+                }
+            } else if let Some((c, h)) = epic_images.get(&game.title.to_lowercase()) {
+                next_cover.clone_from(c);
+                if next_hero.is_none() {
+                    next_hero.clone_from(h);
+                }
+            }
+        }
+
+        if next_cover.is_none() && game.platform == Platform::Emulator {
+            if let Some(ref args) = game.launch_args {
+                if let Ok(tokens) = crate::launcher::parse_launch_args(args) {
+                    if let Some(rom_token) = tokens.last() {
+                        let rom_path = Path::new(rom_token);
+                        if let Some(cemu_cov) =
+                            find_cemu_cover(rom_path, &game.title, game.executable_path.as_deref())
+                        {
+                            if let Ok(managed) =
+                                crate::covers::copy_cover_to_dir(&cemu_cov, covers_dir)
+                            {
+                                next_cover = Some(managed);
+                                next_cover_local = true;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        if next_cover.is_some() {
+            let input = crate::models::UpdateGameInput {
+                id: game.id.clone(),
+                title: game.title.clone(),
+                platform: game.platform,
+                steam_app_id: game.steam_app_id.clone(),
+                executable_path: game.executable_path.clone(),
+                install_dir: game.install_dir.clone(),
+                launch_args: game.launch_args.clone(),
+                working_dir: game.working_dir.clone(),
+                cover_url: next_cover,
+                cover_is_local: next_cover_local,
+                hero_url: next_hero,
+                is_favorite: game.is_favorite,
+                tags: game.tags.clone(),
+            };
+            if db.update_game(input).is_ok() {
+                updated += 1;
+            }
+        }
+    }
+
+    updated
+}
+
+#[cfg(target_os = "windows")]
+fn normalize_key_str(raw: &str) -> String {
+    raw.trim()
+        .trim_end_matches(['/', '\\'])
+        .replace('/', "\\")
+        .to_ascii_lowercase()
 }
 
 #[cfg(target_os = "windows")]
@@ -1455,8 +1785,20 @@ pub fn inspect_game_file(path: &Path) -> AppResult<GameFileInspection> {
             parent_dir
         };
 
+        let title = derive_emulator_game_title(def.id, path);
+        let cover_path = cover_dir
+            .and_then(find_nearby_cover)
+            .or_else(|| {
+                if def.id == "cemu" {
+                    find_cemu_cover(path, &title, detected_exe.as_deref())
+                } else {
+                    None
+                }
+            })
+            .map(|p| p.to_string_lossy().into_owned());
+
         return Ok(GameFileInspection {
-            title: derive_emulator_game_title(def.id, path),
+            title,
             platform: Platform::Emulator,
             detected_emulator_id: Some(def.id.to_string()),
             is_emulator_binary: false,
@@ -1466,9 +1808,7 @@ pub fn inspect_game_file(path: &Path) -> AppResult<GameFileInspection> {
             install_dir: parent_dir.map(|p| p.to_string_lossy().into_owned()),
             launch_args: Some(build_emulator_launch_args(def.fullscreen_args, &path_str)),
             working_dir,
-            cover_path: cover_dir
-                .and_then(find_nearby_cover)
-                .map(|p| p.to_string_lossy().into_owned()),
+            cover_path,
             tags: def.tags.iter().map(|s| (*s).to_string()).collect(),
         });
     }

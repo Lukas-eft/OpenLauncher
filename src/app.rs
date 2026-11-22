@@ -49,6 +49,7 @@ enum AppMessage {
         game_id: String,
         sessions: Vec<PlaySession>,
     },
+    CoversBackfilled(usize),
 }
 
 #[derive(Debug, Clone)]
@@ -154,6 +155,21 @@ impl OpenLauncherApp {
 
         if app.settings.auto_scan_steam_on_startup {
             app.start_steam_scan(true, &cc.egui_ctx);
+        }
+
+        // Backfill missing Epic Games & Cemu covers in the background
+        {
+            let db = Arc::clone(&app.db);
+            let covers_dir = app.covers_dir.clone();
+            let tx = app.app_tx.clone();
+            let repaint = cc.egui_ctx.clone();
+            thread::spawn(move || {
+                let count = discovery::backfill_missing_covers(&db, &covers_dir);
+                if count > 0 {
+                    let _ = tx.send(AppMessage::CoversBackfilled(count));
+                    repaint.request_repaint();
+                }
+            });
         }
 
         Ok(app)
@@ -417,6 +433,11 @@ impl OpenLauncherApp {
                             detail.sessions = sessions;
                             detail.loading_sessions = false;
                         }
+                    }
+                }
+                AppMessage::CoversBackfilled(count) => {
+                    if count > 0 {
+                        self.refresh_library();
                     }
                 }
             }
