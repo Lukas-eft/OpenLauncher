@@ -69,7 +69,6 @@ enum PendingDialog {
     SteamDir,
 }
 
-/// Zentraler Zustand und UI-Controller der reinen Rust-Desktop-App OpenLauncher.
 pub struct OpenLauncherApp {
     db: Arc<Database>,
     tracker: Arc<PlaytimeTracker>,
@@ -101,7 +100,7 @@ pub struct OpenLauncherApp {
 }
 
 impl OpenLauncherApp {
-    /// Initialisiert Datenbank, Playtime-Tracker, Tray-Icon und Bibliotheksdaten.
+
     pub fn new(cc: &eframe::CreationContext<'_>, win32_hwnd: Option<isize>) -> AppResult<Self> {
         let app_data_dir = crate::covers::resolve_app_data_dir()?;
         let db_path = app_data_dir.join("openlauncher.sqlite");
@@ -157,7 +156,6 @@ impl OpenLauncherApp {
             app.start_steam_scan(true, &cc.egui_ctx);
         }
 
-        // Backfill missing Epic Games & Cemu covers in the background
         {
             let db = Arc::clone(&app.db);
             let covers_dir = app.covers_dir.clone();
@@ -1080,7 +1078,6 @@ impl eframe::App for OpenLauncherApp {
     fn update(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
         self.drain_background_events(ctx);
 
-        // Schließen in den System-Tray abfangen, falls aktiviert
         if ctx.input(|i| i.viewport().close_requested())
             && self.settings.minimize_to_tray
             && !self.force_quit.load(Ordering::SeqCst)
@@ -1089,7 +1086,6 @@ impl eframe::App for OpenLauncherApp {
             ctx.send_viewport_cmd(ViewportCommand::Visible(false));
         }
 
-        // Globaler Shortcut Ctrl+K für die Command-Palette
         if ctx.input_mut(|i| i.consume_key(egui::Modifiers::COMMAND, egui::Key::K)) {
             if self.command_palette.is_open {
                 self.command_palette.close();
@@ -1098,7 +1094,6 @@ impl eframe::App for OpenLauncherApp {
             }
         }
 
-        // Abgelaufene Toasts entfernen
         let now = Instant::now();
         self.toasts
             .retain(|t| now.duration_since(t.created_at) < Duration::from_millis(4500));
@@ -1109,13 +1104,10 @@ impl eframe::App for OpenLauncherApp {
         let mut actions = Vec::new();
         let running_list: Vec<ActiveGameStatus> = self.running_games.values().cloned().collect();
 
-        // Borderless window resize on edges and corners
         widgets::handle_borderless_window_resize(ctx);
 
-        // 1. Titlebar
         titlebar::show(ctx, &running_list);
 
-        // 2. Linke Sidebar
         sidebar::show(
             ctx,
             &self.games,
@@ -1125,7 +1117,6 @@ impl eframe::App for OpenLauncherApp {
             &mut actions,
         );
 
-        // 3. Hauptbereich (TopBar + Spiele-Grid auf Liquid-Glass-Canvas)
         egui::CentralPanel::default()
             .frame(Frame::NONE.inner_margin(Margin::ZERO))
             .show(ctx, |ui| {
@@ -1153,7 +1144,6 @@ impl eframe::App for OpenLauncherApp {
                 );
             });
 
-        // 4. Modals & Overlays (render only the single topmost active modal)
         if self.command_palette.is_open {
             command_palette::show(
                 ctx,

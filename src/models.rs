@@ -6,7 +6,6 @@ use serde::{Deserialize, Serialize};
 
 use crate::error::AppError;
 
-/// Unterstützte Herkunfts- und Startplattformen eines Spiels.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum Platform {
@@ -16,7 +15,7 @@ pub enum Platform {
 }
 
 impl Platform {
-    /// Gibt die kanonische Kleinschreibungs-Repräsentation für SQLite zurück.
+
     pub fn as_str(&self) -> &'static str {
         match self {
             Self::Steam => "steam",
@@ -47,7 +46,6 @@ impl FromStr for Platform {
     }
 }
 
-/// Persistierter Spieleintrag inklusive zugeordneter Tags.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Game {
@@ -70,7 +68,6 @@ pub struct Game {
     pub tags: Vec<String>,
 }
 
-/// Eingabedaten zum manuellen Anlegen eines Spiels.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct NewGameInput {
@@ -88,7 +85,6 @@ pub struct NewGameInput {
     pub tags: Vec<String>,
 }
 
-/// Eingabedaten zum Bearbeiten eines bestehenden Spiels.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct UpdateGameInput {
@@ -107,7 +103,6 @@ pub struct UpdateGameInput {
     pub tags: Vec<String>,
 }
 
-/// Einzelne aufgezeichnete Spielsession in SQLite.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PlaySession {
@@ -118,7 +113,6 @@ pub struct PlaySession {
     pub duration_seconds: i64,
 }
 
-/// Persistierte Benutzereinstellungen der Anwendung.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct AppSettings {
@@ -127,7 +121,6 @@ pub struct AppSettings {
     pub auto_scan_steam_on_startup: bool,
 }
 
-/// Geparstes Steam-Spiel aus einer `appmanifest_*.acf`-Datei.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SteamApp {
     pub app_id: String,
@@ -137,7 +130,6 @@ pub struct SteamApp {
     pub hero_url: String,
 }
 
-/// Zusammenfassung eines Steam-Bibliotheksscans für das Frontend.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SteamScanResult {
@@ -148,7 +140,6 @@ pub struct SteamScanResult {
     pub warnings: Vec<String>,
 }
 
-/// Status eines aktuell überwachten laufenden Spiels.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ActiveGameStatus {
@@ -158,7 +149,6 @@ pub struct ActiveGameStatus {
     pub pid: Option<u32>,
 }
 
-/// Event-Payload beim Beenden einer überwachten Spielsession.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct RunningGameEvent {
@@ -169,7 +159,6 @@ pub struct RunningGameEvent {
     pub last_played_at: String,
 }
 
-/// Vorschau-Daten aus einer Linux-`.desktop`-Datei für das Formular.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct DesktopEntryPreview {
@@ -180,7 +169,6 @@ pub struct DesktopEntryPreview {
     pub icon: Option<String>,
 }
 
-/// Vorkonfiguriertes Emulator-Profil inklusive erkannter Pfade.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct EmulatorPresetInfo {
@@ -195,7 +183,6 @@ pub struct EmulatorPresetInfo {
     pub detected_rom_dirs: Vec<String>,
 }
 
-/// Automatisch gefundenes Spiel aus Emulatoren, Ordnern oder PC-Stores.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct DiscoveredGame {
@@ -214,7 +201,6 @@ pub struct DiscoveredGame {
     pub already_imported: bool,
 }
 
-/// Ergebnis einer intelligenten Einzeldatei-Analyse (`.exe`, ROM, `.desktop`, Emulator).
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct GameFileInspection {
@@ -232,7 +218,6 @@ pub struct GameFileInspection {
     pub tags: Vec<String>,
 }
 
-/// Ergebnis eines Sammel-Imports erkannter Spiele.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct BulkImportResult {

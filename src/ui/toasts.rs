@@ -5,7 +5,6 @@ use crate::ui::icons::{paint_icon, IconKind};
 use crate::ui::widgets::{glass_icon_button, glass_modal_frame};
 use crate::ui::{AppAction, ToastItem, ToastVariant};
 
-/// Zeigt bis zu 4 schwebende Liquid-Glass-Toasts unten rechts an.
 pub fn show(ctx: &egui::Context, toasts: &[ToastItem], actions: &mut Vec<AppAction>) {
     if toasts.is_empty() {
         return;

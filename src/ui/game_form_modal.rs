@@ -25,7 +25,6 @@ use crate::ui::widgets::{
 };
 use crate::ui::{AddModalTab, AppAction};
 
-/// Zustand für das Hinzufügen- und Bearbeiten-Modal (Emulator, Auto-Erkennung, Manuell).
 #[derive(Debug, Clone)]
 pub struct GameFormState {
     pub editing_game_id: Option<String>,
@@ -33,7 +32,6 @@ pub struct GameFormState {
     pub active_tab: AddModalTab,
     pub close_requested_flag: bool,
 
-    // Manuell / Edit
     pub title: String,
     pub platform: Platform,
     pub steam_app_id: String,
@@ -50,7 +48,6 @@ pub struct GameFormState {
     pub error: Option<String>,
     pub is_submitting: bool,
 
-    // Emulator Tab
     pub presets: Vec<EmulatorPresetInfo>,
     pub presets_loading: bool,
     pub selected_preset_id: String,
@@ -61,7 +58,6 @@ pub struct GameFormState {
     pub emu_selected: Vec<bool>,
     pub emu_search: String,
 
-    // Auto-Erkennung Tab
     pub discover_busy: bool,
     pub discover_items: Vec<DiscoveredGame>,
     pub discover_selected: Vec<bool>,
@@ -326,7 +322,6 @@ impl GameFormState {
     }
 }
 
-/// Zeigt das Modal zum Hinzufügen oder Bearbeiten eines Spiels.
 pub fn show(
     ctx: &egui::Context,
     state: &mut GameFormState,
@@ -358,7 +353,6 @@ pub fn show(
                 ui.set_width(modal_w);
                 ui.set_max_height(max_h);
 
-                // Header mit Titel, Tabs & Close-Button
                 Frame::NONE
                     .inner_margin(Margin::symmetric(20, 14))
                     .show(ui, |ui| {
@@ -441,7 +435,6 @@ pub fn show(
                     Stroke::new(1.0_f32, BORDER_SUBTLE),
                 );
 
-                // Scrollbarer Body
                 ScrollArea::vertical()
                     .id_salt("game_form_scroll")
                     .max_height(max_h - 68.0)
@@ -517,7 +510,6 @@ fn show_emulator_tab(
         });
     });
 
-    // Preset grid (3 columns)
     let gap = 8.0;
     let cols = 3usize;
     let avail_w = ui.available_width();
@@ -847,11 +839,9 @@ fn show_manual_tab(
             });
     }
 
-    // 2-Spalten-Formular: Links 2:3-Cover, Rechts Metadaten
     ui.horizontal_top(|ui| {
         ui.spacing_mut().item_spacing.x = 18.0;
 
-        // Linke Spalte: Cover-Vorschau
         ui.vertical(|ui| {
             ui.set_width(134.0);
             ui.spacing_mut().item_spacing.y = 8.0;
@@ -914,7 +904,6 @@ fn show_manual_tab(
             }
         });
 
-        // Right column: input fields
         ui.vertical(|ui| {
             ui.set_width(ui.available_width());
             ui.spacing_mut().item_spacing.y = 10.0;
@@ -928,7 +917,6 @@ fn show_manual_tab(
                 None,
             );
 
-            // Platform + Steam AppID / Favorite
             let col_w = ((ui.available_width() - 12.0) * 0.5).max(120.0);
             ui.horizontal_top(|ui| {
                 ui.spacing_mut().item_spacing.x = 12.0;
@@ -1043,7 +1031,6 @@ fn show_manual_tab(
         });
     });
 
-    // Tags section
     glass_well_frame().show(ui, |ui| {
         ui.set_width(ui.available_width());
         ui.spacing_mut().item_spacing.y = 8.0;
@@ -1133,7 +1120,6 @@ fn show_manual_tab(
         }
     });
 
-    // Footer: Cancel + Save
     ui.horizontal(|ui| {
         ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
             let submit_lbl = if state.is_submitting {
@@ -1216,7 +1202,6 @@ fn show_discovered_list(
         ui.set_width(ui.available_width());
         ui.spacing_mut().item_spacing.y = 10.0;
 
-        // Header with filter field & selection actions
         ui.horizontal(|ui| {
             let search_w = (ui.available_width() - 250.0).max(140.0);
             glass_text_edit(ui, search, "Filter discovered games...", false, Some(search_w));

@@ -6,8 +6,6 @@ use eframe::egui::{
     Rect, Shadow, Stroke, Visuals,
 };
 
-/// Wandelt unpremultiplizierte sRGB-RGBA-Werte (wie CSS `rgba()`) korrekt in
-/// premultipliziertes `Color32` um, sodass `egui_glow` keine additiven Weißflächen erzeugt.
 #[inline]
 pub const fn rgba(r: u8, g: u8, b: u8, a: u8) -> Color32 {
     let pr = ((r as u16 * a as u16 + 127) / 255) as u8;
@@ -16,7 +14,6 @@ pub const fn rgba(r: u8, g: u8, b: u8, a: u8) -> Color32 {
     Color32::from_rgba_premultiplied(pr, pg, pb, a)
 }
 
-// Tiefschwarzes Liquid-Glass-Monochrom-Farbsystem
 pub const BG_CANVAS: Color32 = Color32::from_rgb(10, 10, 12);
 pub const BG_TITLEBAR: Color32 = rgba(12, 12, 16, 245);
 pub const BG_SIDEBAR: Color32 = rgba(13, 13, 17, 232);
@@ -56,7 +53,6 @@ pub const DANGER_TEXT: Color32 = Color32::from_rgb(253, 164, 175);
 pub const DANGER_SOLID: Color32 = Color32::from_rgb(225, 29, 72);
 pub const DANGER_SOLID_HOVER: Color32 = Color32::from_rgb(244, 63, 94);
 
-/// Konfiguriert Liquid-Glass-Theme, Scrollbars und native System-Schriftarten.
 pub fn configure_theme_and_fonts(ctx: &egui::Context) {
     install_fonts(ctx);
 
@@ -180,7 +176,6 @@ fn load_first_existing_font(paths: &[&str]) -> Option<Vec<u8>> {
     paths.iter().find_map(|path| fs::read(path).ok())
 }
 
-/// Zeichnet den tiefschwarzen Obsidian-Hintergrund samt subtilen monochromen Lichtschleiern.
 pub fn paint_liquid_canvas_bg(painter: &Painter, rect: Rect) {
     painter.rect_filled(rect, 0.0, BG_CANVAS);
 
@@ -214,7 +209,6 @@ pub fn paint_liquid_canvas_bg(painter: &Painter, rect: Rect) {
     }
 }
 
-/// Zeichnet die feine 1-Pixel-Liquid-Glass-Lichtkante am oberen Rand einer Fläche.
 pub fn paint_glass_specular_top(painter: &Painter, rect: Rect, radius: f32) {
     let inset = (radius * 0.5).clamp(6.0, 16.0);
     if rect.width() <= inset * 2.0 + 4.0 {
@@ -230,7 +224,6 @@ pub fn paint_glass_specular_top(painter: &Painter, rect: Rect, radius: f32) {
     );
 }
 
-/// Zeichnet einen ruhigen Schwarz/Grau-Verlauf als Hintergrund-Fallback für Cover & Hero-Banner.
 pub fn paint_monochrome_gradient(painter: &Painter, rect: Rect, radius: f32) {
     painter.rect_filled(rect, radius, Color32::from_rgb(15, 15, 19));
     let top_rect = Rect::from_min_max(

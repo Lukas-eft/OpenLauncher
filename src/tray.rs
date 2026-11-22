@@ -10,19 +10,16 @@ use crate::error::{AppError, AppResult};
 
 const APP_ICON_PNG: &[u8] = include_bytes!("../assets/icon.png");
 
-/// Befehle vom System-Tray an das Hauptfenster.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum TrayCommand {
     Show,
     Quit,
 }
 
-/// Hält das Tray-Icon am Leben, solange die App läuft.
 pub struct TrayHandle {
     _icon: TrayIcon,
 }
 
-/// Lädt das eingebettete Anwendungs-Icon als `egui::IconData` für Fenster & Taskleiste.
 pub fn load_egui_app_icon() -> Option<egui::IconData> {
     let img = image::load_from_memory(APP_ICON_PNG).ok()?.to_rgba8();
     let (width, height) = img.dimensions();
@@ -42,7 +39,6 @@ fn load_tray_icon() -> AppResult<Icon> {
         .map_err(|e| AppError::Internal(format!("Failed to create tray icon: {e}")))
 }
 
-/// Sets up the system tray icon and context menu ("Open OpenLauncher", "Quit").
 pub fn setup_tray(
     egui_ctx: egui::Context,
     tx: Sender<TrayCommand>,
@@ -107,7 +103,6 @@ pub fn setup_tray(
     Ok(TrayHandle { _icon: tray_icon })
 }
 
-/// Liest unter Windows das rohe HWND aus dem `eframe::CreationContext`.
 #[cfg(target_os = "windows")]
 pub fn extract_win32_hwnd(cc: &eframe::CreationContext<'_>) -> Option<isize> {
     use raw_window_handle::{HasWindowHandle, RawWindowHandle};
@@ -124,7 +119,6 @@ pub fn extract_win32_hwnd(_cc: &eframe::CreationContext<'_>) -> Option<isize> {
     None
 }
 
-/// Konfiguriert dunklen DWM-Rahmen, abgerundete Windows-11-Ecken und subtile Graukontur.
 #[cfg(target_os = "windows")]
 pub fn configure_windows_frame(hwnd: isize) {
     use core::ffi::c_void;
@@ -139,8 +133,6 @@ pub fn configure_windows_frame(hwnd: isize) {
     let corner_pref: i32 = DWMWCP_ROUND;
     let border_color_bgr: u32 = 0x0032_3238;
 
-    // SAFETY: `hwnd_ptr` ist ein gültiges Fenster-Handle des Hauptfensters und die Zeiger
-    // zeigen auf stack-allokierte Werte der passenden Größe für die jeweilige DWM-Eigenschaft.
     unsafe {
         let _ = DwmSetWindowAttribute(
             hwnd_ptr,
@@ -166,7 +158,6 @@ pub fn configure_windows_frame(hwnd: isize) {
 #[cfg(not(target_os = "windows"))]
 pub fn configure_windows_frame(_hwnd: isize) {}
 
-/// Macht ein im Tray verstecktes Win32-Fenster sofort wieder sichtbar und fokussiert es.
 #[cfg(target_os = "windows")]
 pub fn restore_win32_window(hwnd: isize) {
     use windows_sys::Win32::Foundation::HWND;
@@ -175,7 +166,7 @@ pub fn restore_win32_window(hwnd: isize) {
     };
 
     let hwnd_ptr = hwnd as HWND;
-    // SAFETY: `hwnd_ptr` gehört zum Hauptfenster dieser Anwendung.
+
     unsafe {
         let _ = ShowWindow(hwnd_ptr, SW_SHOW);
         let _ = ShowWindow(hwnd_ptr, SW_RESTORE);
@@ -186,14 +177,13 @@ pub fn restore_win32_window(hwnd: isize) {
 #[cfg(not(target_os = "windows"))]
 pub fn restore_win32_window(_hwnd: isize) {}
 
-/// Sendet `WM_CLOSE` an ein eventuell verstecktes Hauptfenster, damit die App sauber beendet wird.
 #[cfg(target_os = "windows")]
 pub fn post_close_win32_window(hwnd: isize) {
     use windows_sys::Win32::Foundation::HWND;
     use windows_sys::Win32::UI::WindowsAndMessaging::{PostMessageW, WM_CLOSE};
 
     let hwnd_ptr = hwnd as HWND;
-    // SAFETY: `PostMessageW` ist thread-sicher für ein gültiges Fenster-Handle.
+
     unsafe {
         let _ = PostMessageW(hwnd_ptr, WM_CLOSE, 0, 0);
     }

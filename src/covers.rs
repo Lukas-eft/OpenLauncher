@@ -15,8 +15,6 @@ type SteamAssetMap = HashMap<String, (Option<String>, Option<String>)>;
 
 static STEAM_ASSET_CACHE: OnceLock<Mutex<SteamAssetMap>> = OnceLock::new();
 
-/// Resolves the OpenLauncher application data directory (`%APPDATA%\com.openlauncher.app` on Windows),
-/// creates it if needed, and migrates any legacy `openlibrary.sqlite`.
 pub fn resolve_app_data_dir() -> AppResult<PathBuf> {
     let base = dirs::data_dir().ok_or_else(|| {
         AppError::Internal("Could not resolve AppData directory".to_string())
@@ -34,7 +32,6 @@ pub fn resolve_app_data_dir() -> AppResult<PathBuf> {
     Ok(app_data_dir)
 }
 
-/// Copies local cover files into the managed `covers/` directory if they reside outside it.
 pub fn ensure_managed_cover(
     cover_url: &mut Option<String>,
     cover_is_local: &mut bool,
@@ -58,7 +55,6 @@ pub fn ensure_managed_cover(
     }
 }
 
-/// Validates and copies a selected cover image into the managed `covers/` directory.
 pub fn copy_cover_to_dir(src: &Path, covers_dir: &Path) -> AppResult<String> {
     if !src.is_file() {
         return Err(AppError::InvalidInput(
@@ -102,7 +98,6 @@ pub fn copy_cover_to_dir(src: &Path, covers_dir: &Path) -> AppResult<String> {
     Ok(target_path.to_string_lossy().into_owned())
 }
 
-/// Removes a managed local cover file when a game is deleted.
 pub fn remove_cover_if_managed(cover_path: &Path, covers_dir: &Path) {
     if let (Ok(canon_cover), Ok(canon_dir)) =
         (fs::canonicalize(cover_path), fs::canonicalize(covers_dir))
@@ -121,10 +116,6 @@ fn is_inside_dir(path: &Path, dir: &Path) -> bool {
     }
 }
 
-/// Resolves an image URI suitable for `egui_extras` (`file:///...` or `https://...`).
-///
-/// Automatically resolves Steam CDN URLs to local `Steam/appcache/librarycache/<appid>` files
-/// if available on disk so covers load even when Valve's legacy CDN URL returns 404.
 pub fn cover_image_uri(cover_url: Option<&str>, cover_is_local: bool) -> Option<String> {
     let trimmed = cover_url?.trim();
     if trimmed.is_empty() {
@@ -249,7 +240,6 @@ mod tests {
         assert!(copied_path.starts_with(&covers_dir));
         assert_eq!(copied_path.extension().and_then(|e| e.to_str()), Some("png"));
 
-        // Invalid extension rejected
         let bad = src_dir.join("readme.txt");
         fs::write(&bad, b"text").expect("write txt");
         assert!(matches!(
@@ -257,7 +247,6 @@ mod tests {
             Err(AppError::InvalidInput(_))
         ));
 
-        // Cleanup only deletes files inside covers_dir
         remove_cover_if_managed(&src_png, &covers_dir);
         assert!(src_png.is_file());
         remove_cover_if_managed(&copied_path, &covers_dir);

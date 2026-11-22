@@ -6,22 +6,21 @@ use crate::error::{AppError, AppResult};
 use crate::models::SteamApp;
 
 const EXCLUDED_APP_IDS: &[&str] = &[
-    "228980",  // Steamworks Common Redistributables
-    "1070560", // Steam Linux Runtime 1.0 (scout)
-    "1391110", // Steam Linux Runtime 2.0 (soldier)
-    "1628350", // Steam Linux Runtime 3.0 (sniper)
-    "1493710", // Proton Experimental
-    "1420170", // Proton 5.13
-    "1580130", // Proton 6.3
-    "1887720", // Proton 7.0
-    "2348590", // Proton 8.0
-    "2805730", // Proton 9.0
-    "1826330", // Proton EasyAntiCheat Runtime
-    "1161040", // Proton BattlEye Runtime
-    "2180100", // Proton Hotfix
+    "228980",
+    "1070560",
+    "1391110",
+    "1628350",
+    "1493710",
+    "1420170",
+    "1580130",
+    "1887720",
+    "2348590",
+    "2805730",
+    "1826330",
+    "1161040",
+    "2180100",
 ];
 
-/// Repräsentiert einen Wert im Valve-KeyValues-Format (VDF / ACF).
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum VdfValue {
     Str(String),
@@ -43,7 +42,6 @@ impl VdfValue {
         }
     }
 
-    /// Sucht einen Schlüssel case-insensitiv in einer Map.
     pub fn get_ci(&self, key: &str) -> Option<&VdfValue> {
         self.as_map().and_then(|entries| {
             entries
@@ -53,13 +51,11 @@ impl VdfValue {
         })
     }
 
-    /// Liefert einen String-Wert für einen Schlüssel case-insensitiv.
     pub fn get_str_ci(&self, key: &str) -> Option<&str> {
         self.get_ci(key).and_then(Self::as_str)
     }
 }
 
-/// Ergebnis eines Steam-Bibliotheksscans inklusive Warnmeldungen.
 #[derive(Debug, Clone, Default)]
 pub struct SteamScanOutput {
     pub scanned_libraries: usize,
@@ -85,7 +81,6 @@ fn tokenize_vdf(input: &str) -> AppResult<Vec<Token>> {
             continue;
         }
 
-        // Zeilenkommentare `// ...`
         if ch == '/' {
             chars.next();
             if chars.peek() == Some(&'/') {
@@ -137,7 +132,7 @@ fn tokenize_vdf(input: &str) -> AppResult<Vec<Token>> {
                         Some('t') => buf.push('\t'),
                         Some('r') => buf.push('\r'),
                         Some(other) => {
-                            // Toleranz für unescapte Windows-Pfade in älteren Dateien
+
                             buf.push('\\');
                             buf.push(other);
                         }
@@ -160,7 +155,6 @@ fn tokenize_vdf(input: &str) -> AppResult<Vec<Token>> {
             continue;
         }
 
-        // Unquoted Token
         let mut word = String::new();
         while let Some(&next) = chars.peek() {
             if next.is_whitespace() || next == '{' || next == '}' || next == '"' {
@@ -230,24 +224,20 @@ fn parse_map_body(tokens: &[Token], pos: &mut usize, expect_rbrace: bool) -> App
     Ok(VdfValue::Map(entries))
 }
 
-/// Parst ein Valve-VDF/ACF-Textdokument in eine verschachtelte `VdfValue`-Struktur.
 pub fn parse_vdf(input: &str) -> AppResult<VdfValue> {
     let tokens = tokenize_vdf(input)?;
     let mut pos = 0;
     parse_map_body(&tokens, &mut pos, false)
 }
 
-/// Erzeugt die hochauflösende Steam-Cover-URL (`600x900`).
 pub fn steam_cover_url(app_id: &str) -> String {
     format!("https://cdn.cloudflare.steamstatic.com/steam/apps/{app_id}/library_600x900_2x.jpg")
 }
 
-/// Erzeugt die Steam-Hero-Banner-URL für die Detailansicht.
 pub fn steam_hero_url(app_id: &str) -> String {
     format!("https://cdn.cloudflare.steamstatic.com/steam/apps/{app_id}/library_hero.jpg")
 }
 
-/// Filtert bekannte Steamworks-Redistributables, Proton-Versionen und Linux-Runtimes heraus.
 pub fn is_excluded_steam_app(app_id: &str, name: &str) -> bool {
     let id = app_id.trim();
     if EXCLUDED_APP_IDS.contains(&id) {
@@ -261,7 +251,6 @@ pub fn is_excluded_steam_app(app_id: &str, name: &str) -> bool {
         || lower.starts_with("steamworks common redistributables")
 }
 
-/// Extrahiert alle Steam-Bibliotheksordner aus einer `libraryfolders.vdf`.
 pub fn parse_library_folders(
     vdf_content: &str,
     primary_steam_root: Option<&Path>,
@@ -281,7 +270,7 @@ pub fn parse_library_folders(
 
     for (key, value) in entries {
         match value {
-            // Neues Steam-Format: "0" { "path" "C:\\Program Files (x86)\\Steam" ... }
+
             VdfValue::Map(_) => {
                 if let Some(path_str) = value.get_str_ci("path") {
                     let trimmed = path_str.trim();
@@ -290,7 +279,7 @@ pub fn parse_library_folders(
                     }
                 }
             }
-            // Älteres Steam-Format: "1" "D:\\SteamLibrary"
+
             VdfValue::Str(path_str) if key.chars().all(|c| c.is_ascii_digit()) => {
                 let trimmed = path_str.trim();
                 if !trimmed.is_empty() {
@@ -304,7 +293,6 @@ pub fn parse_library_folders(
     Ok(libraries)
 }
 
-/// Parst eine einzelne `appmanifest_<appid>.acf`-Datei in ein `SteamApp`-Objekt.
 pub fn parse_app_manifest(acf_content: &str, steamapps_dir: &Path) -> AppResult<SteamApp> {
     let parsed = parse_vdf(acf_content)?;
     let app_state = parsed.get_ci("AppState").unwrap_or(&parsed);
@@ -344,7 +332,6 @@ pub fn parse_app_manifest(acf_content: &str, steamapps_dir: &Path) -> AppResult<
     })
 }
 
-/// Liefert Standard-Kandidatenpfade für Steam unter Linux relativ zum Home-Verzeichnis.
 pub fn candidate_linux_steam_roots(home: &Path) -> Vec<PathBuf> {
     vec![
         home.join(".local/share/Steam"),
@@ -355,7 +342,6 @@ pub fn candidate_linux_steam_roots(home: &Path) -> Vec<PathBuf> {
     ]
 }
 
-/// Ermittelt vorhandene Steam-Installationsverzeichnisse unter Windows und Linux.
 pub fn discover_steam_roots(custom_path: Option<&Path>) -> Vec<PathBuf> {
     let mut candidates = Vec::new();
     let mut seen = HashSet::new();
@@ -402,7 +388,6 @@ pub fn discover_steam_roots(custom_path: Option<&Path>) -> Vec<PathBuf> {
     candidates.into_iter().filter(|p| p.is_dir()).collect()
 }
 
-/// Sucht die lokale Steam-Programmdatei in den ermittelten Steam-Root-Verzeichnissen.
 pub fn find_steam_executable(roots: &[PathBuf]) -> Option<PathBuf> {
     #[cfg(target_os = "windows")]
     let candidates = ["steam.exe", "Steam.exe"];
@@ -452,7 +437,6 @@ fn read_windows_steam_registry_paths() -> Vec<PathBuf> {
     out
 }
 
-/// Scannt alle entdeckten Steam-Bibliotheken und gibt gefundene Spiele zurück.
 pub fn scan_steam_libraries(custom_path: Option<&Path>) -> SteamScanOutput {
     let roots = discover_steam_roots(custom_path);
     if roots.is_empty() {
@@ -467,7 +451,6 @@ pub fn scan_steam_libraries(custom_path: Option<&Path>) -> SteamScanOutput {
     scan_steam_roots(&roots)
 }
 
-/// Scannt explizit angegebene Steam-Root-Verzeichnisse nach Bibliotheken und Manifesten.
 pub fn scan_steam_roots(roots: &[PathBuf]) -> SteamScanOutput {
     let mut output = SteamScanOutput::default();
     let mut library_dirs = Vec::new();
@@ -577,8 +560,6 @@ pub fn scan_steam_roots(roots: &[PathBuf]) -> SteamScanOutput {
     output
 }
 
-/// Searches Steam's local `appcache/librarycache/<app_id>` directory (including hashed subfolders)
-/// for vertical capsule covers and hero banners.
 pub fn find_local_steam_assets(
     roots: &[PathBuf],
     app_id: &str,
@@ -828,7 +809,6 @@ mod tests {
         )
         .expect("create secondary");
 
-        // Escape Backslashes für gültiges VDF auf Windows & Linux
         let p0 = primary_root.to_string_lossy().replace('\\', "\\\\");
         let p1 = secondary_root.to_string_lossy().replace('\\', "\\\\");
         let libraryfolders_vdf = format!(

@@ -2,14 +2,24 @@
 
 <img src="assets/banner.svg" alt="OpenLauncher Banner" width="100%" />
 
-# OpenLauncher
-
-**A fast, 100% pure Rust desktop game launcher with a monochrome Liquid-Glass UI, automatic store & emulator discovery, and local SQLite playtime tracking.**
+<br />
+<br />
 
 [![Rust](https://img.shields.io/badge/Rust-2021-09090B?style=for-the-badge&logo=rust&logoColor=white)](https://www.rust-lang.org/)
 [![egui](https://img.shields.io/badge/UI-eframe%20%2F%20egui-18181B?style=for-the-badge)](https://github.com/emilk/egui)
 [![SQLite](https://img.shields.io/badge/Storage-SQLite%20WAL-18181B?style=for-the-badge&logo=sqlite&logoColor=white)](https://www.sqlite.org/)
 [![Platform](https://img.shields.io/badge/Platform-Windows%20%7C%20Linux-27272A?style=for-the-badge)](https://github.com/Lukas-eft/OpenLauncher)
+[![License: MIT](https://img.shields.io/badge/License-MIT-60a5fa?style=for-the-badge)](#license)
+
+**A lightweight, native Rust game launcher for Windows and Linux.**
+**Keep your Steam, Epic, GOG, Minecraft, and emulator games in one place with local SQLite playtime tracking.**
+
+[Features](#-features) •
+[Supported Platforms](#-supported-platforms--emulators) •
+[Releases](#-releases) •
+[Quick Start](#-getting-started) •
+[Architecture](#%EF%B8%8F-architecture) •
+[Disclaimer](#%EF%B8%8F-disclaimer)
 
 </div>
 
@@ -17,17 +27,17 @@
 
 ## ✨ Features
 
-- **100% Native Rust Desktop App** — Built directly with `eframe` / `egui` without any WebView, Electron, Node.js, or browser overhead.
-- **Black & Gray Liquid-Glass Design** — Borderless translucent-style obsidian surfaces, crisp vector icons, subtle specular borders, and responsive 2:3 cover grid.
+- **Pure Rust Desktop App** — Built directly with `eframe` / `egui` without any WebView, Electron, or Node.js runtime.
+- **Dark Monochrome Interface** — Borderless window with a 2:3 cover grid, favorites, tags, and detail view.
 - **Automatic Store & Library Discovery** — Scans and imports games from:
   - **Steam** (parses `libraryfolders.vdf` / `appmanifest_*.acf`, resolves local `appcache/librarycache` covers & hero banners before CDN fallback)
-  - **Epic Games Store** (reads `.item` manifests, extracts `DieselGameBoxTall` covers & `DieselGameBox` banners from `catcache.bin`, launches via `com.epicgames.launcher://`)
+  - **Epic Games Store** (reads `.item` manifests, pulls `DieselGameBoxTall` covers & `DieselGameBox` banners from `catcache.bin`, launches via `com.epicgames.launcher://`)
   - **GOG Galaxy** (reads Windows Registry entries)
   - **Minecraft** (detects **Minecraft Launcher** / Java Edition & **Minecraft for Windows** Bedrock UWP packages with logos and `shell:AppsFolder` launch)
-- **First-Class Emulator Support** — Built-in presets for **Cemu**, **Dolphin**, **RPCS3**, **PCSX2**, **Ryujinx**, **Yuzu / Eden**, **PPSSPP**, **DuckStation**, **Citra / Azahar**, and **mGBA**:
+- **Emulator Support** — Built-in presets for **Cemu**, **Dolphin**, **RPCS3**, **PCSX2**, **Ryujinx**, **Yuzu / Eden**, **PPSSPP**, **DuckStation**, **Citra / Azahar**, and **mGBA**:
   - Auto-detects emulator executables, Cemu `settings.xml` / `games` / `mlc01` paths, and `meta.xml` titles
-  - Skips Wii U updates/DLCs (`0005000e` / `0005000c`) and automatically converts Cemu `.tga` cover art (`bootTvTex.tga` / `iconTex.tga`) to managed `.png` covers
-- **Background Playtime Telemetry** — Tracks active game processes (including child/handoff processes and store URI launches) and persists sessions in SQLite (`WAL` mode).
+  - Skips Wii U updates/DLCs (`0005000e` / `0005000c`) and converts Cemu `.tga` cover art (`bootTvTex.tga` / `iconTex.tga`) to managed `.png` covers
+- **Background Playtime Tracking** — Tracks active game processes (including child/handoff processes and store URI launches) and saves sessions in SQLite (`WAL` mode).
 - **Quick Search (`Ctrl+K`) & System Tray** — Fuzzy command palette with keyboard navigation (`↑↓`, `Enter`, `Shift+Enter`) and optional minimize-to-tray so playtime tracking stays active.
 
 ---
@@ -39,6 +49,12 @@
 | **PC Stores** | Steam, Epic Games, GOG Galaxy, Minecraft | Local Steam `librarycache`, Epic `catcache.bin`, UWP logos, nearby `cover.*` |
 | **PC Folders** | Custom folders (`D:\Games`, `.desktop`, Unreal `Binaries/Win64`) | Nearby `cover.*` / `boxart.*` / `poster.*` |
 | **Emulators** | Cemu, Dolphin, RPCS3, PCSX2, Ryujinx, Yuzu/Eden, PPSSPP, DuckStation, Citra/Azahar, mGBA | Cemu `meta/*.tga` (auto-converted to PNG), nearby cover files |
+
+---
+
+## 📦 Releases
+
+Pre-built Windows binaries (`openlauncher.exe`) are available on the [GitHub Releases](https://github.com/Lukas-eft/OpenLauncher/releases) page.
 
 ---
 
@@ -87,12 +103,21 @@ src/
 ├── launcher.rs        # Safe process, Steam, Epic URI & shell:AppsFolder launching + tracker
 ├── fuzzy.rs           # Fuzzy search scoring for the Ctrl+K command palette
 ├── tray.rs            # System tray icon, context menu & Win32 window restore
-├── theme.rs           # Black/Gray Liquid-Glass color palette & surface helpers
+├── theme.rs           # Monochrome color palette & surface helpers
 └── ui/                # Titlebar, Sidebar, TopBar, GameGrid, DetailModal, Forms, Settings
 ```
 
 ---
 
-## 📄 License
+## ⚠️ Disclaimer
 
-This project is open source. See the repository for details.
+**OpenLauncher** is an independent, non-commercial personal hobby and educational project built from scratch to explore native desktop UI development and local game library management in Rust.
+
+- **No Affiliation or Commercial Intent:** This project is not affiliated with, endorsed by, or connected to Valve / Steam, Epic Games, GOG, Mojang / Microsoft, Nintendo, or any other launcher, store, or emulator developer. It is purely a personal learning project and does not aim to compete with or replace any existing commercial or open-source product.
+- **Takedown & Removal Requests:** All code in this repository was written independently. However, if you are a rights holder and believe any part of this repository infringes on your intellectual property, trademarks, or rights—or if you would like any content modified or taken down—please open an [Issue](https://github.com/Lukas-eft/OpenLauncher/issues) or contact the repository owner via GitHub, and it will be addressed or removed promptly.
+
+---
+
+## License
+
+This project is released under the [MIT License](LICENSE).

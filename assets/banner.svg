@@ -1,6 +1,6 @@
-<svg width="1280" height="360" viewBox="0 0 1280 360" fill="none" xmlns="http://www.w3.org/2000/svg">
+<svg width="1280" height="340" viewBox="0 0 1280 340" fill="none" xmlns="http://www.w3.org/2000/svg">
   <defs>
-    <linearGradient id="bgGrad" x1="0" y1="0" x2="1280" y2="360" gradientUnits="userSpaceOnUse">
+    <linearGradient id="bgGrad" x1="0" y1="0" x2="1280" y2="340" gradientUnits="userSpaceOnUse">
       <stop offset="0%" stop-color="#070709"/>
       <stop offset="50%" stop-color="#0D0D12"/>
       <stop offset="100%" stop-color="#08080B"/>
@@ -14,57 +14,37 @@
       <stop offset="0%" stop-color="#E4E4E7" stop-opacity="0.08"/>
       <stop offset="100%" stop-color="#09090B" stop-opacity="0"/>
     </radialGradient>
-    <linearGradient id="cardGlass" x1="220" y1="54" x2="1060" y2="306" gradientUnits="userSpaceOnUse">
+    <linearGradient id="cardGlass" x1="220" y1="48" x2="1060" y2="292" gradientUnits="userSpaceOnUse">
       <stop offset="0%" stop-color="#1A1A22" stop-opacity="0.88"/>
       <stop offset="100%" stop-color="#0E0E13" stop-opacity="0.92"/>
     </linearGradient>
-    <linearGradient id="borderGlass" x1="220" y1="54" x2="1060" y2="306" gradientUnits="userSpaceOnUse">
+    <linearGradient id="borderGlass" x1="220" y1="48" x2="1060" y2="292" gradientUnits="userSpaceOnUse">
       <stop offset="0%" stop-color="#FFFFFF" stop-opacity="0.32"/>
       <stop offset="45%" stop-color="#FFFFFF" stop-opacity="0.09"/>
       <stop offset="100%" stop-color="#FFFFFF" stop-opacity="0.18"/>
     </linearGradient>
-    <linearGradient id="specularTop" x1="320" y1="54" x2="960" y2="54" gradientUnits="userSpaceOnUse">
+    <linearGradient id="specularTop" x1="320" y1="48" x2="960" y2="48" gradientUnits="userSpaceOnUse">
       <stop offset="0%" stop-color="#FFFFFF" stop-opacity="0"/>
       <stop offset="50%" stop-color="#FFFFFF" stop-opacity="0.65"/>
       <stop offset="100%" stop-color="#FFFFFF" stop-opacity="0"/>
-    </linearGradient>
-    <linearGradient id="iconBg" x1="0" y1="0" x2="84" y2="84" gradientUnits="userSpaceOnUse">
-      <stop offset="0%" stop-color="#F4F4F5"/>
-      <stop offset="100%" stop-color="#D4D4D8"/>
     </linearGradient>
     <pattern id="grid" width="32" height="32" patternUnits="userSpaceOnUse">
       <path d="M 32 0 L 0 0 0 32" fill="none" stroke="#FFFFFF" stroke-opacity="0.03" stroke-width="1"/>
     </pattern>
   </defs>
 
-  <!-- Canvas -->
-  <rect width="1280" height="360" rx="20" fill="url(#bgGrad)"/>
-  <rect width="1280" height="360" rx="20" fill="url(#grid)"/>
-  <rect width="1280" height="360" rx="20" fill="url(#glowTop)"/>
-  <rect width="1280" height="360" rx="20" fill="url(#glowCenter)"/>
+  <rect width="1280" height="340" rx="20" fill="url(#bgGrad)"/>
+  <rect width="1280" height="340" rx="20" fill="url(#grid)"/>
+  <rect width="1280" height="340" rx="20" fill="url(#glowTop)"/>
+  <rect width="1280" height="340" rx="20" fill="url(#glowCenter)"/>
 
-  <!-- Frosted Glass Hero Card -->
-  <rect x="180" y="56" width="920" height="248" rx="24" fill="url(#cardGlass)" stroke="url(#borderGlass)" stroke-width="1.2"/>
-  <line x1="280" y1="56.6" x2="1000" y2="56.6" stroke="url(#specularTop)" stroke-width="1.5"/>
+  <rect x="200" y="50" width="880" height="240" rx="24" fill="url(#cardGlass)" stroke="url(#borderGlass)" stroke-width="1.2"/>
+  <line x1="300" y1="50.6" x2="980" y2="50.6" stroke="url(#specularTop)" stroke-width="1.5"/>
 
-  <!-- Emblem -->
-  <g transform="translate(248, 138)">
-    <rect width="84" height="84" rx="20" fill="url(#iconBg)"/>
-    <rect x="0.75" y="0.75" width="82.5" height="82.5" rx="19.25" stroke="#FFFFFF" stroke-opacity="0.8" stroke-width="1.5"/>
-    <!-- Gamepad Vector -->
-    <rect x="16" y="25" width="52" height="34" rx="12" stroke="#09090B" stroke-width="3.2" fill="none"/>
-    <line x1="26" y1="42" x2="36" y2="42" stroke="#09090B" stroke-width="3" stroke-linecap="round"/>
-    <line x1="31" y1="37" x2="31" y2="47" stroke="#09090B" stroke-width="3" stroke-linecap="round"/>
-    <circle cx="53" cy="38" r="2.6" fill="#09090B"/>
-    <circle cx="47" cy="45" r="2.6" fill="#09090B"/>
-  </g>
+  <text x="640" y="144" text-anchor="middle" fill="#FFFFFF" font-family="Segoe UI, Inter, -apple-system, BlinkMacSystemFont, sans-serif" font-size="56" font-weight="700" letter-spacing="-1.2">OpenLauncher</text>
+  <text x="640" y="182" text-anchor="middle" fill="#A1A1AA" font-family="Segoe UI, Inter, -apple-system, BlinkMacSystemFont, sans-serif" font-size="20" font-weight="400">Native Rust Game Launcher · Local SQLite Playtime Tracking</text>
 
-  <!-- Title & Subtitle -->
-  <text x="364" y="168" fill="#FFFFFF" font-family="Segoe UI, Inter, -apple-system, BlinkMacSystemFont, sans-serif" font-size="52" font-weight="700" letter-spacing="-1.2">OpenLauncher</text>
-  <text x="366" y="206" fill="#A1A1AA" font-family="Segoe UI, Inter, -apple-system, BlinkMacSystemFont, sans-serif" font-size="20" font-weight="400">100% Pure Rust Game Launcher · Liquid-Glass UI · Local Playtime Telemetry</text>
-
-  <!-- Monochrome Feature Pills -->
-  <g transform="translate(366, 228)">
+  <g transform="translate(389, 212)">
     <rect x="0" y="0" width="94" height="28" rx="9" fill="#FFFFFF" fill-opacity="0.08" stroke="#FFFFFF" stroke-opacity="0.16"/>
     <text x="47" y="18" text-anchor="middle" fill="#E4E4E7" font-family="Consolas, monospace" font-size="12">Rust + egui</text>
 

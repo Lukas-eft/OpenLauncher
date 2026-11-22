@@ -19,7 +19,6 @@ const FIELD_CODES: &[&str] = &[
     "%f", "%F", "%u", "%U", "%d", "%D", "%n", "%N", "%i", "%c", "%k", "%v", "%m",
 ];
 
-/// Ereignisse des Hintergrund-Playtime-Trackers für die UI.
 #[derive(Debug, Clone)]
 pub enum TrackerEvent {
     Started(ActiveGameStatus),
@@ -37,7 +36,6 @@ fn emit_tracker_event(
     }
 }
 
-/// Verwaltet laufende Spiele und misst deren Spielzeit im Hintergrund.
 pub struct PlaytimeTracker {
     active: Arc<Mutex<HashMap<String, ActiveGameStatus>>>,
 }
@@ -55,7 +53,6 @@ impl PlaytimeTracker {
         }
     }
 
-    /// Prüft, ob ein Spiel aktuell gestartet/überwacht wird.
     pub fn is_running(&self, game_id: &str) -> bool {
         self.active
             .lock()
@@ -63,7 +60,6 @@ impl PlaytimeTracker {
             .unwrap_or(false)
     }
 
-    /// Liefert alle aktuell laufenden Spiele.
     pub fn running_games(&self) -> Vec<ActiveGameStatus> {
         self.active
             .lock()
@@ -71,7 +67,6 @@ impl PlaytimeTracker {
             .unwrap_or_default()
     }
 
-    /// Startet ein Steam- oder manuell hinzugefügtes Spiel sicher ohne Shell-Aufruf.
     pub fn launch_game(
         &self,
         game: Game,
@@ -556,7 +551,6 @@ fn monitor_local_process(
 
         let processes = sys.processes();
 
-        // Kind- und Enkelprozesse laufender PIDs erkennen
         loop {
             let mut added = false;
             for (&pid, proc_info) in processes {
@@ -575,12 +569,10 @@ fn monitor_local_process(
             }
         }
 
-        // Beendete PIDs entfernen (außer dem noch laufenden direkten Kindprozess)
         tracked_pids.retain(|pid| {
             (!direct_exited && pid.as_u32() == direct_pid) || processes.contains_key(pid)
         });
 
-        // Falls ein Launcher-Stub direkt ein Spiel im Spielverzeichnis gestartet hat
         if direct_exited && tracked_pids.is_empty() {
             if let Some(ref dir) = monitor_dir {
                 for (&pid, proc_info) in processes {
@@ -654,7 +646,6 @@ fn monitor_steam_game(
     let mut sys = System::new();
     let mut tracked_pids: HashSet<Pid> = HashSet::new();
 
-    // Bis zu 90 Sekunden auf den tatsächlichen Spielstart durch Steam warten
     let wait_deadline = Instant::now() + Duration::from_secs(90);
     while Instant::now() < wait_deadline {
         sys.refresh_processes_specifics(
@@ -707,7 +698,6 @@ fn monitor_steam_game(
 
         let processes = sys.processes();
 
-        // Neue Prozesse im Installationsverzeichnis oder Kindprozesse erfassen
         for (&pid, proc_info) in processes {
             if tracked_pids.contains(&pid) {
                 continue;
@@ -804,7 +794,6 @@ fn is_specific_game_dir(dir: &Path) -> bool {
     )
 }
 
-/// Validates that a Steam App ID consists exclusively of ASCII digits.
 pub fn validate_steam_app_id(app_id: &str) -> AppResult<&str> {
     let trimmed = app_id.trim();
     if trimmed.is_empty() || !trimmed.chars().all(|c| c.is_ascii_digit()) {
@@ -815,7 +804,6 @@ pub fn validate_steam_app_id(app_id: &str) -> AppResult<&str> {
     Ok(trimmed)
 }
 
-/// Tokenizes launch arguments safely without invoking a shell.
 pub fn parse_launch_args(input: &str) -> AppResult<Vec<String>> {
     let chars: Vec<char> = input.chars().collect();
     let mut args = Vec::new();
@@ -887,7 +875,6 @@ pub fn parse_launch_args(input: &str) -> AppResult<Vec<String>> {
     Ok(args)
 }
 
-/// Parses a Linux `.desktop` entry into title, executable, arguments, and working directory.
 pub fn parse_desktop_entry(content: &str) -> AppResult<DesktopEntryPreview> {
     let mut in_desktop_entry = false;
     let mut name: Option<String> = None;

@@ -213,7 +213,6 @@ fn find_emulator_def(preset_id: &str) -> Option<&'static EmulatorDef> {
         .find(|def| def.id.eq_ignore_ascii_case(preset_id.trim()))
 }
 
-/// Returns all emulator presets including auto-detected executable and ROM paths.
 pub fn list_emulator_presets() -> Vec<EmulatorPresetInfo> {
     let search_roots = collect_emulator_search_roots();
     let indexed_exes = index_emulator_binaries(&search_roots);
@@ -379,7 +378,6 @@ fn file_name_matches(path: &Path, expected: &str) -> bool {
         .is_some_and(|n| n.eq_ignore_ascii_case(expected))
 }
 
-/// Locates Cemu `settings.xml` and local Cemu game directories (`games`, `roms`, `mlc01`).
 pub fn detect_cemu_game_paths(cemu_exe: Option<&Path>) -> Vec<PathBuf> {
     let mut xml_candidates = Vec::new();
     let mut raw_paths = Vec::new();
@@ -446,7 +444,6 @@ pub fn detect_cemu_game_paths(cemu_exe: Option<&Path>) -> Vec<PathBuf> {
     paths
 }
 
-/// Parst `<GamePaths><Entry>...</Entry></GamePaths>` aus Cemu's `settings.xml`.
 pub fn parse_cemu_settings_xml(xml: &str) -> Vec<PathBuf> {
     let Some(block) = extract_xml_tag_value(xml, "GamePaths") else {
         return Vec::new();
@@ -469,7 +466,6 @@ pub fn parse_cemu_settings_xml(xml: &str) -> Vec<PathBuf> {
     out
 }
 
-/// Extrahiert den offiziellen Spieltitel aus Cemu's `meta/meta.xml`.
 pub fn parse_cemu_meta_xml(xml: &str) -> Option<String> {
     for tag in ["longname_de", "longname_en", "shortname_de", "shortname_en"] {
         if let Some(raw) = extract_xml_tag_value(xml, tag) {
@@ -511,7 +507,6 @@ fn decode_xml_entities(input: &str) -> String {
         .replace("&gt;", ">")
 }
 
-/// Erzeugt sicher gequotete Launch-Argumente aus einem Emulator-Template wie `-f -g {rom}`.
 pub fn build_emulator_launch_args(template: &str, rom_path: &str) -> String {
     let escaped = rom_path.replace('"', "\\\"");
     let quoted = if escaped.ends_with('\\') {
@@ -528,11 +523,9 @@ pub fn build_emulator_launch_args(template: &str, rom_path: &str) -> String {
     }
 }
 
-/// Bereinigt Datei- oder Ordnernamen von ROM-Region-Tags, Engine-Suffixen und Unterstrichen.
 pub fn clean_game_title(raw: &str) -> String {
     let mut text = raw.trim().to_string();
 
-    // Bekannte Spiele-/ROM-Endungen abschneiden
     if let Some((stem, ext)) = text.rsplit_once('.') {
         let ext_lower = ext.to_ascii_lowercase();
         let known_rom = EMULATOR_DEFS
@@ -544,13 +537,10 @@ pub fn clean_game_title(raw: &str) -> String {
         }
     }
 
-    // Eckige Klammern `[...]` komplett entfernen (z. B. [0100...], [!], [Rev 1])
     text = strip_bracket_groups(&text, '[', ']');
 
-    // Typische Regions-/Dump-Metadaten in runden Klammern entfernen
     text = strip_metadata_parens(&text);
 
-    // Gängige Windows-/Unreal-Suffixe abschneiden
     for suffix in [
         "-Win64-Shipping",
         "-WinGDK-Shipping",
@@ -635,7 +625,6 @@ fn is_rom_metadata_tag(inner: &str) -> bool {
         || lower.contains("wiiu")
 }
 
-/// Sucht typische Cover-Bilder im Spiel- oder ROM-Ordner.
 pub fn find_nearby_cover(dir: &Path) -> Option<PathBuf> {
     let mut dirs_to_check = vec![dir.to_path_buf()];
     if let Some(parent) = dir.parent() {
@@ -658,7 +647,6 @@ pub fn find_nearby_cover(dir: &Path) -> Option<PathBuf> {
     None
 }
 
-/// Scans a ROM/game folder for a selected emulator preset.
 pub fn scan_emulator_folder(
     preset_id: &str,
     emulator_path: Option<&str>,
@@ -702,7 +690,6 @@ pub fn scan_emulator_folder(
     let mut files = Vec::new();
     collect_files_recursive(rom_dir, 0, 7, 5000, &mut files);
 
-    // Track directories containing `.cue` files so duplicate `.bin` tracks are skipped for PS1/PS2
     let cue_dirs: HashSet<String> = files
         .iter()
         .filter(|p| has_ext(p, "cue"))
@@ -727,12 +714,10 @@ pub fn scan_emulator_folder(
             continue;
         }
 
-        // RPCS3: only `PS3_GAME/USRDIR/EBOOT.BIN` or `.pkg`
         if def.id == "rpcs3" && ext == "bin" && !is_rpcs3_eboot(&path) {
             continue;
         }
 
-        // Skip `.bin` tracks for PS1/PS2 when a `.cue` descriptor exists in the same folder
         if (def.id == "duckstation" || def.id == "pcsx2")
             && ext == "bin"
             && path.parent().is_some_and(|dir| cue_dirs.contains(&normalize_key(dir)))
@@ -740,7 +725,6 @@ pub fn scan_emulator_folder(
             continue;
         }
 
-        // Cemu: inspect unpacked `.rpx` files (skip updates/DLCs and read `meta.xml`)
         if def.id == "cemu" && ext == "rpx" && is_cemu_update_or_dlc_path(&path) {
             continue;
         }
@@ -949,7 +933,6 @@ fn derive_emulator_game_title(preset_id: &str, rom_path: &Path) -> String {
     }
 }
 
-/// Scans a general PC games folder (e.g. `D:\Games`) for game executables.
 pub fn scan_pc_games_folder(
     folder: &Path,
     existing_keys: &ExistingGameKeys,
@@ -1142,7 +1125,6 @@ fn normalize_alnum(input: &str) -> String {
         .collect()
 }
 
-/// Parses an Epic Games `.item` manifest into a `DiscoveredGame`.
 pub fn parse_epic_manifest(json_str: &str) -> Option<DiscoveredGame> {
     let val: Value = serde_json::from_str(json_str).ok()?;
     if val
@@ -1208,14 +1190,12 @@ pub fn parse_epic_manifest(json_str: &str) -> Option<DiscoveredGame> {
     })
 }
 
-/// Scans installed PC stores (Steam, Epic Games Store, GOG Galaxy) and detected emulator libraries.
 pub fn scan_pc_stores(
     custom_steam_path: Option<&Path>,
     existing_keys: &ExistingGameKeys,
 ) -> Vec<DiscoveredGame> {
     let mut results = Vec::new();
 
-    // 1. Steam
     let steam_scan = steam::scan_steam_libraries(custom_steam_path);
     for app in steam_scan.apps {
         let already = existing_keys.contains_steam(&app.app_id);
@@ -1236,7 +1216,6 @@ pub fn scan_pc_stores(
         });
     }
 
-    // 2. Epic Games & GOG on Windows
     #[cfg(target_os = "windows")]
     {
         for mut item in scan_windows_epic_manifests() {
@@ -1278,7 +1257,6 @@ pub fn scan_pc_stores(
         }
     }
 
-    // 3. Auto-detected emulator libraries (e.g. Cemu games & mlc01 titles)
     let mut seen_emu_titles = HashSet::new();
     for preset in list_emulator_presets() {
         let Some(ref exe_path) = preset.detected_exe_path else {
@@ -1668,7 +1646,6 @@ fn find_cemu_cover(rom_path: &Path, title: &str, cemu_exe: Option<&str>) -> Opti
     None
 }
 
-/// Backfills missing covers/heroes for already-imported Epic Games and Cemu titles in SQLite.
 pub fn backfill_missing_covers(db: &crate::db::Database, covers_dir: &Path) -> usize {
     let Ok(games) = db.list_games() else {
         return 0;
@@ -1829,7 +1806,6 @@ fn scan_windows_gog_registry() -> Vec<DiscoveredGame> {
     out
 }
 
-/// Inspects a single selected file (`.exe`, ROM, `.desktop`, emulator binary) for quick form auto-fill.
 pub fn inspect_game_file(path: &Path) -> AppResult<GameFileInspection> {
     if !path.is_file() {
         return Err(AppError::InvalidInput(format!(
@@ -1841,7 +1817,6 @@ pub fn inspect_game_file(path: &Path) -> AppResult<GameFileInspection> {
     let path_str = path.to_string_lossy().into_owned();
     let parent_dir = path.parent();
 
-    // 1. Linux `.desktop` file
     if has_ext(path, "desktop") {
         let content = fs::read_to_string(path)?;
         let preview = parse_desktop_entry(&content)?;
@@ -1863,7 +1838,6 @@ pub fn inspect_game_file(path: &Path) -> AppResult<GameFileInspection> {
         });
     }
 
-    // 2. Known emulator binary itself (e.g. `Cemu.exe`, `Dolphin.exe`, `Ryujinx.exe`)
     if let Some(def) = EMULATOR_DEFS
         .iter()
         .find(|d| d.exe_names.iter().any(|name| file_name_matches(path, name)))
@@ -1884,7 +1858,6 @@ pub fn inspect_game_file(path: &Path) -> AppResult<GameFileInspection> {
         });
     }
 
-    // 3. Known ROM file (e.g. `.wua`, `.wux`, `.rpx`, `.nsp`, `.xci`, `.rvz`, `.3ds`, ...)
     let ext = path
         .extension()
         .and_then(|e| e.to_str())
@@ -1944,7 +1917,6 @@ pub fn inspect_game_file(path: &Path) -> AppResult<GameFileInspection> {
         });
     }
 
-    // 4. Regular PC game (`.exe` / Linux binary) — including Unreal `Binaries/Win64` detection
     let install_root = infer_pc_install_root(path);
     let raw_name = install_root
         .as_deref()
@@ -1995,7 +1967,7 @@ fn is_unreal_subpath(path: &Path) -> bool {
 
 fn infer_pc_install_root(exe_path: &Path) -> Option<PathBuf> {
     if is_unreal_subpath(exe_path) {
-        // `<GameRoot>/<Project>/Binaries/Win64/<Exe>` -> hoch bis vor `<Project>` oder `<GameRoot>`
+
         let mut cur = exe_path.parent();
         while let Some(dir) = cur {
             if dir
@@ -2093,7 +2065,6 @@ Breath of the Wild</longname_de>
         let tmp = TempDir::new().expect("tempdir");
         let roms = tmp.path().join("WiiU");
 
-        // 1. WUA-Komplettpaket mit Cover
         let botw_dir = roms.join("BotW");
         fs::create_dir_all(&botw_dir).expect("botw dir");
         fs::write(
@@ -2103,7 +2074,6 @@ Breath of the Wild</longname_de>
         .expect("write wua");
         fs::write(botw_dir.join("cover.png"), b"png").expect("write cover");
 
-        // 2. Entpacktes RPX-Spiel mit meta.xml
         let mk8_root = roms.join("MK8_Folder");
         fs::create_dir_all(mk8_root.join("code")).expect("code");
         fs::create_dir_all(mk8_root.join("meta")).expect("meta");
@@ -2114,7 +2084,6 @@ Breath of the Wild</longname_de>
         )
         .expect("write meta");
 
-        // 3. Wii U Update-Ordner (0005000e) muss übersprungen werden
         let update_code = roms
             .join("mlc01")
             .join("usr")

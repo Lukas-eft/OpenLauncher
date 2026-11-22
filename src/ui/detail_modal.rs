@@ -23,7 +23,6 @@ use crate::ui::widgets::{
 };
 use crate::ui::AppAction;
 
-/// State of the game detail modal.
 #[derive(Debug, Clone)]
 pub struct DetailModalState {
     pub game_id: String,
@@ -43,7 +42,6 @@ impl DetailModalState {
     }
 }
 
-/// Shows the game detail modal with hero banner, telemetry KPIs, and launch configuration.
 pub fn show(
     ctx: &egui::Context,
     state: &mut DetailModalState,
@@ -90,7 +88,6 @@ pub fn show(
                         ui.set_width(modal_w);
                         ui.set_max_width(modal_w);
 
-                        // Hero banner spanning 100% of modal width
                         let (hero_rect, _) =
                             ui.allocate_exact_size(Vec2::new(modal_w, 156.0), Sense::hover());
                         let hero_rounding = CornerRadius {
@@ -126,7 +123,6 @@ pub fn show(
                             theme::paint_monochrome_gradient(ui.painter(), hero_rect, 16.0);
                         }
 
-                        // Subtle bottom fade into elevated modal surface
                         let fade_rect = Rect::from_min_max(
                             Pos2::new(hero_rect.left(), hero_rect.bottom() - 48.0),
                             hero_rect.max,
@@ -137,7 +133,6 @@ pub fn show(
                             theme::rgba(18, 18, 22, 200),
                         );
 
-                        // Close button in the exact top-right corner of the modal
                         let close_rect = Rect::from_center_size(
                             Pos2::new(hero_rect.right() - 22.0, hero_rect.top() + 22.0),
                             Vec2::splat(30.0),
@@ -181,7 +176,6 @@ pub fn show(
 
                         let content_w = (modal_w - 48.0).max(200.0);
 
-                        // Content cleanly below the hero banner
                         Frame::NONE
                             .inner_margin(Margin {
                                 left: 24,
@@ -193,11 +187,9 @@ pub fn show(
                                 ui.set_width(content_w);
                                 ui.set_max_width(content_w);
 
-                                // Header row: 2:3 cover + title + actions
                                 ui.horizontal(|ui| {
                                     ui.spacing_mut().item_spacing.x = 18.0;
 
-                                    // 2:3 Cover preview
                                     let (c_rect, _) = ui.allocate_exact_size(
                                         Vec2::new(108.0, 156.0),
                                         Sense::hover(),
@@ -240,7 +232,6 @@ pub fn show(
                                         StrokeKind::Inside,
                                     );
 
-                                    // Right header column
                                     let right_w = (content_w - 126.0).max(160.0);
                                     ui.vertical(|ui| {
                                         ui.set_max_width(right_w);
@@ -389,7 +380,6 @@ pub fn show(
                                     });
                                 });
 
-                                // Tags
                                 if !game.tags.is_empty() {
                                     ui.add_space(14.0);
                                     ui.horizontal_wrapped(|ui| {
@@ -407,7 +397,6 @@ pub fn show(
                                     });
                                 }
 
-                                // 3 Monochrome Telemetry KPI Cards (strictly sized to content_w)
                                 ui.add_space(16.0);
                                 let card_w = ((content_w - 20.0) / 3.0).floor().max(120.0);
                                 ui.horizontal(|ui| {
@@ -435,7 +424,6 @@ pub fn show(
                                     );
                                 });
 
-                                // Launch Configuration
                                 ui.add_space(16.0);
                                 glass_well_frame().show(ui, |ui| {
                                     let inner_w = (content_w - 30.0).max(180.0);

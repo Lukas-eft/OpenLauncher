@@ -9,7 +9,6 @@ use crate::ui::widgets::{
 };
 use crate::ui::AppAction;
 
-/// Bearbeitbarer Formularzustand für die Anwendungseinstellungen.
 #[derive(Debug, Clone)]
 pub struct SettingsModalState {
     pub minimize_to_tray: bool,
@@ -29,7 +28,6 @@ impl From<&AppSettings> for SettingsModalState {
     }
 }
 
-/// Zeigt das Einstellungs-Modal für Tray-Verhalten und Steam-Pfade.
 pub fn show(
     ctx: &egui::Context,
     state: &mut SettingsModalState,
@@ -58,7 +56,6 @@ pub fn show(
             glass_modal_frame().show(ui, |ui| {
                 ui.set_width(modal_w);
 
-                // Header
                 Frame::NONE
                     .inner_margin(Margin::symmetric(20, 14))
                     .show(ui, |ui| {
@@ -97,13 +94,11 @@ pub fn show(
                     Stroke::new(1.0_f32, BORDER_SUBTLE),
                 );
 
-                // Inhalt
                 Frame::NONE
                     .inner_margin(Margin::same(20))
                     .show(ui, |ui| {
                         ui.spacing_mut().item_spacing.y = 12.0;
 
-                        // Option 1: Tray
                         glass_well_frame().show(ui, |ui| {
                             ui.set_width(ui.available_width());
                             ui.horizontal(|ui| {
@@ -133,7 +128,6 @@ pub fn show(
                             });
                         });
 
-                        // Option 2: Auto-Scan Steam
                         glass_well_frame().show(ui, |ui| {
                             ui.set_width(ui.available_width());
                             ui.horizontal(|ui| {
@@ -163,7 +157,6 @@ pub fn show(
                             });
                         });
 
-                        // Option 3: Custom Steam Path
                         glass_well_frame().show(ui, |ui| {
                             ui.set_width(ui.available_width());
                             ui.label(
@@ -238,7 +231,6 @@ pub fn show(
                             }
                         });
 
-                        // Footer
                         ui.add_space(4.0);
                         ui.horizontal(|ui| {
                             ui.with_layout(

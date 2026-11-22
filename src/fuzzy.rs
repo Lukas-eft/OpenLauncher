@@ -7,14 +7,11 @@ fn is_word_boundary(ch: char) -> bool {
     ch.is_whitespace() || matches!(ch, ':' | '_' | '-')
 }
 
-/// Parst einen optionalen RFC3339-Zeitstempel in Unix-Millisekunden.
 pub fn parse_rfc3339_millis(iso: Option<&str>) -> Option<i64> {
     iso.and_then(|s| DateTime::parse_from_rfc3339(s.trim()).ok())
         .map(|dt| dt.timestamp_millis())
 }
 
-/// Bewertet eine Fuzzy-Suche zwischen Anfrage und Zieltext.
-/// Gibt `-1` zurück, wenn die Anfrage nicht passt.
 pub fn fuzzy_score(query: &str, target: &str) -> i32 {
     let q_trimmed = query.trim();
     if q_trimmed.is_empty() {
@@ -67,7 +64,6 @@ pub fn fuzzy_score(query: &str, target: &str) -> i32 {
     score.max(1)
 }
 
-/// Filtert und rankt Spiele für die Command-Palette anhand von Titel, Tags und Plattform.
 pub fn search_games<'a>(games: &'a [Game], query: &str) -> Vec<&'a Game> {
     let trimmed = query.trim();
     if trimmed.is_empty() {

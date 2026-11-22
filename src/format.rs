@@ -2,7 +2,6 @@ use chrono::{DateTime, Local, Utc};
 
 use crate::models::Platform;
 
-/// Formats total playtime in seconds for cards and KPIs.
 pub fn format_playtime(seconds: i64) -> String {
     if seconds <= 0 {
         return "Never played".to_string();
@@ -21,7 +20,6 @@ pub fn format_playtime(seconds: i64) -> String {
     format!("{} hrs", hours.round() as i64)
 }
 
-/// Formats an exact session duration (`MM:SS` or `Xh YYm ZZs`).
 pub fn format_duration_exact(seconds: i64) -> String {
     let safe = seconds.max(0);
     let hrs = safe / 3600;
@@ -34,7 +32,6 @@ pub fn format_duration_exact(seconds: i64) -> String {
     }
 }
 
-/// Formats an RFC3339 date relative to the current time.
 pub fn format_relative_date(iso: Option<&str>) -> String {
     let Some(raw) = iso.map(str::trim).filter(|s| !s.is_empty()) else {
         return "Never".to_string();
@@ -66,7 +63,6 @@ pub fn format_relative_date(iso: Option<&str>) -> String {
     parsed.with_timezone(&Local).format("%Y-%m-%d").to_string()
 }
 
-/// Formats an RFC3339 timestamp in local time as `YYYY-MM-DD, HH:MM`.
 pub fn format_date_time(iso: &str) -> String {
     let Ok(parsed) = DateTime::parse_from_rfc3339(iso.trim()) else {
         return iso.to_string();
@@ -77,7 +73,6 @@ pub fn format_date_time(iso: &str) -> String {
         .to_string()
 }
 
-/// Returns the human-readable English platform label.
 pub fn platform_label(platform: Platform) -> &'static str {
     match platform {
         Platform::Steam => "Steam",

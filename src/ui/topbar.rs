@@ -23,7 +23,6 @@ fn segment_filters() -> [(&'static str, SidebarFilter); 6] {
     ]
 }
 
-/// Obere Aktionsleiste mit Segmentfiltern, Zähler, Schnellsuche (`Ctrl+K`), Sortierung & Hinzufügen.
 pub fn show(
     ui: &mut egui::Ui,
     filter: &SidebarFilter,
@@ -48,7 +47,6 @@ pub fn show(
             ui.horizontal(|ui| {
                 let avail = ui.available_width();
 
-                // Links: Segmentierte Schnellauswahl oder kompakte Filter-Überschrift
                 if avail > 790.0 {
                     Frame::NONE
                         .fill(BG_GLASS_WELL)
@@ -94,7 +92,6 @@ pub fn show(
                     );
                 }
 
-                // Right: Add Game, Sort, Quick Search
                 ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                     ui.spacing_mut().item_spacing.x = 8.0;
 

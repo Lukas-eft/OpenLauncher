@@ -19,7 +19,6 @@ use crate::ui::widgets::{
 };
 use crate::ui::AppAction;
 
-/// Zustand der `Ctrl+K`-Command-Palette.
 #[derive(Debug, Default)]
 pub struct CommandPaletteState {
     pub is_open: bool,
@@ -44,7 +43,6 @@ impl CommandPaletteState {
     }
 }
 
-/// Zeigt die `Ctrl+K`-Command-Palette mit Fuzzy-Suche und Tastaturnavigation.
 pub fn show(
     ctx: &egui::Context,
     state: &mut CommandPaletteState,
@@ -110,7 +108,6 @@ pub fn show(
             glass_modal_frame().show(ui, |ui| {
                 ui.set_width(modal_w);
 
-                // Eingabeleiste
                 Frame::NONE
                     .inner_margin(Margin::symmetric(16, 12))
                     .show(ui, |ui| {
@@ -153,7 +150,6 @@ pub fn show(
                     Stroke::new(1.0_f32, BORDER_SUBTLE),
                 );
 
-                // Ergebnisliste
                 ScrollArea::vertical()
                     .id_salt("palette_results_scroll")
                     .max_height(330.0)
@@ -192,7 +188,6 @@ pub fn show(
                             });
                     });
 
-                // Footer-Tastaturhinweise
                 Frame::NONE
                     .fill(theme::rgba(11, 11, 14, 235))
                     .stroke(Stroke::new(1.0_f32, BORDER_SUBTLE))
@@ -262,7 +257,6 @@ fn palette_row(
         theme::paint_glass_specular_top(p, rect, 11.0);
     }
 
-    // Cover-Thumbnail 32x44
     let thumb_rect = Rect::from_min_size(
         Pos2::new(rect.left() + 10.0, rect.center().y - 22.0),
         Vec2::new(32.0, 44.0),
@@ -288,7 +282,6 @@ fn palette_row(
         );
     }
 
-    // Details-Icon-Button rechts
     let eye_rect = Rect::from_center_size(
         Pos2::new(rect.right() - 88.0, rect.center().y),
         Vec2::splat(26.0),
@@ -324,7 +317,6 @@ fn palette_row(
         return;
     }
 
-    // Status-/Start-Badge rechts außen
     let pill_rect = Rect::from_min_size(
         Pos2::new(rect.right() - 68.0, rect.center().y - 13.0),
         Vec2::new(58.0, 26.0),
@@ -362,7 +354,6 @@ fn palette_row(
         );
     }
 
-    // Titel & Untertitel mit Clipping
     let text_clip = Rect::from_min_max(
         Pos2::new(thumb_rect.right() + 12.0, rect.top() + 6.0),
         Pos2::new(eye_rect.left() - 10.0, rect.bottom() - 6.0),

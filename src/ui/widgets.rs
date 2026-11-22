@@ -20,7 +20,6 @@ enum ButtonTone {
     Danger,
 }
 
-/// Silberweißer Liquid-Glass-Primärbutton.
 pub fn glass_primary_button(
     ui: &mut Ui,
     icon: Option<IconKind>,
@@ -30,7 +29,6 @@ pub fn glass_primary_button(
     glass_action_button(ui, icon, label, enabled, ButtonTone::Primary)
 }
 
-/// Dunkler frosted Sekundärbutton.
 pub fn glass_secondary_button(
     ui: &mut Ui,
     icon: Option<IconKind>,
@@ -40,7 +38,6 @@ pub fn glass_secondary_button(
     glass_action_button(ui, icon, label, enabled, ButtonTone::Secondary)
 }
 
-/// Rot akzentuierter Bestätigungs-Button für Löschvorgänge.
 pub fn glass_danger_button(
     ui: &mut Ui,
     icon: Option<IconKind>,
@@ -96,7 +93,7 @@ fn glass_action_button(
         match tone {
             ButtonTone::Primary => {
                 if enabled {
-                    // Soft drop-shadow + subtle silver hover glow
+
                     p.rect_filled(
                         draw_rect.translate(Vec2::new(0.0, 3.0)),
                         radius,
@@ -110,7 +107,6 @@ fn glass_action_button(
                         );
                     }
 
-                    // Two-tone liquid glass gradient
                     let bottom_bg = Color32::from_rgb(
                         (212.0 + 16.0 * hover_t) as u8,
                         (212.0 + 16.0 * hover_t) as u8,
@@ -138,7 +134,6 @@ fn glass_action_button(
                         top_bg,
                     );
 
-                    // Outer glass border + specular top edge
                     p.rect_stroke(
                         draw_rect,
                         radius,
@@ -235,7 +230,6 @@ fn glass_action_button(
     response
 }
 
-/// Navigation pill for sidebar and tab bars.
 pub fn glass_pill_button(
     ui: &mut Ui,
     icon: Option<IconKind>,
@@ -329,7 +323,6 @@ pub fn glass_pill_button(
     response
 }
 
-/// Kompakter runder Icon-Button.
 pub fn glass_icon_button(
     ui: &mut Ui,
     _id_salt: impl Hash,
@@ -377,7 +370,6 @@ pub fn glass_icon_button(
     response
 }
 
-/// Liquid-Glass-Schalter (`GlassToggle`).
 pub fn glass_toggle(ui: &mut Ui, checked: &mut bool) -> Response {
     let desired = Vec2::new(38.0, 22.0);
     let (rect, response) = ui.allocate_exact_size(desired, Sense::click());
@@ -416,7 +408,6 @@ pub fn glass_toggle(ui: &mut Ui, checked: &mut bool) -> Response {
     response
 }
 
-/// Einheitliches Textfeld im dunklen Glass-Well-Stil.
 pub fn glass_text_edit(
     ui: &mut Ui,
     text: &mut String,
@@ -447,8 +438,6 @@ pub fn glass_text_edit(
     frame_resp.inner
 }
 
-/// Zeichnet ein Bild mit `object-cover`-Zuschneidung (`UV`-Berechnung) in `rect`.
-/// Gibt `false` zurück, wenn das Bild noch lädt oder nicht geladen werden konnte.
 pub fn paint_cover_image(
     ui: &Ui,
     uri: &str,
@@ -491,7 +480,6 @@ pub fn paint_cover_image(
     true
 }
 
-/// Zeichnet eine dezente Status-Pill mit grünem/grauem Punkt.
 pub fn status_badge(
     ui: &mut Ui,
     label: &str,
@@ -528,7 +516,6 @@ pub fn status_badge(
     }
 }
 
-/// Draws a darkened modal backdrop in the given `Order` layer.
 pub fn paint_modal_backdrop_order(
     ctx: &egui::Context,
     id_salt: &str,
@@ -551,12 +538,10 @@ pub fn paint_modal_backdrop_order(
     clicked_outside
 }
 
-/// Draws a darkened modal backdrop in `Order::Middle` (strictly below `Order::Foreground` modal panels).
 pub fn paint_modal_backdrop(ctx: &egui::Context, id_salt: &str) -> bool {
     paint_modal_backdrop_order(ctx, id_salt, egui::Order::Middle)
 }
 
-/// Zeichnet die Sektion-Überschrift in Versalien (Sidebar / Launch-Details).
 pub fn section_overline(ui: &mut Ui, label: &str) {
     ui.label(
         egui::RichText::new(label.to_uppercase())
@@ -566,7 +551,6 @@ pub fn section_overline(ui: &mut Ui, label: &str) {
     );
 }
 
-/// Ermöglicht flüssiges Resizing des randlosen Fensters an allen 4 Kanten und 4 Ecken.
 pub fn handle_borderless_window_resize(ctx: &egui::Context) {
     let is_maximized = ctx.input(|i| i.viewport().maximized.unwrap_or(false));
     if is_maximized {
@@ -604,7 +588,6 @@ pub fn handle_borderless_window_resize(ctx: &egui::Context) {
     }
 }
 
-/// Zeichnet eine abgerundete Karte/Well mit Glass-Hintergrund.
 pub fn glass_well_frame() -> egui::Frame {
     egui::Frame::NONE
         .fill(BG_GLASS_WELL)
@@ -613,7 +596,6 @@ pub fn glass_well_frame() -> egui::Frame {
         .inner_margin(Margin::same(14))
 }
 
-/// Zeichnet ein Elevated-Glass-Modal-Panel.
 pub fn glass_modal_frame() -> egui::Frame {
     egui::Frame::NONE
         .fill(theme::BG_GLASS_ELEVATED)
@@ -627,7 +609,6 @@ pub fn glass_modal_frame() -> egui::Frame {
         })
 }
 
-/// Hilfsfunktion zum Zeichnen eines zentrierten Badges (z. B. `Ctrl+K`, `ESC`).
 pub fn paint_kbd_chip(ui: &mut Ui, text: &str) {
     let galley = ui
         .painter()

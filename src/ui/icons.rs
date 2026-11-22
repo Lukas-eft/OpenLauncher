@@ -1,6 +1,5 @@
 use eframe::egui::{Color32, CornerRadius, Painter, Pos2, Rect, Stroke, Vec2};
 
-/// Scharfe Vektor-Icons ohne Plattform-Emoji-Abhängigkeiten.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum IconKind {
     Minimize,
@@ -319,7 +318,7 @@ pub fn paint_icon(painter: &Painter, center: Pos2, size: f32, kind: IconKind, co
             painter.add(eframe::egui::Shape::closed_line(pts, stroke));
         }
         IconKind::Edit => {
-            // Crisp angled pencil outline
+
             let pts = vec![
                 Pos2::new(center.x - r * 0.68, center.y + r * 0.68),
                 Pos2::new(center.x - r * 0.56, center.y + r * 0.22),
@@ -337,7 +336,7 @@ pub fn paint_icon(painter: &Painter, center: Pos2, size: f32, kind: IconKind, co
             );
         }
         IconKind::Trash => {
-            // Lid
+
             painter.line_segment(
                 [
                     Pos2::new(center.x - r * 0.68, center.y - r * 0.38),
@@ -345,7 +344,7 @@ pub fn paint_icon(painter: &Painter, center: Pos2, size: f32, kind: IconKind, co
                 ],
                 stroke,
             );
-            // Connected top handle
+
             let handle = vec![
                 Pos2::new(center.x - r * 0.24, center.y - r * 0.38),
                 Pos2::new(center.x - r * 0.20, center.y - r * 0.68),
@@ -353,7 +352,7 @@ pub fn paint_icon(painter: &Painter, center: Pos2, size: f32, kind: IconKind, co
                 Pos2::new(center.x + r * 0.24, center.y - r * 0.38),
             ];
             painter.add(eframe::egui::Shape::line(handle, stroke));
-            // Bin body
+
             let body = vec![
                 Pos2::new(center.x - r * 0.50, center.y - r * 0.38),
                 Pos2::new(center.x - r * 0.42, center.y + r * 0.68),
@@ -361,7 +360,7 @@ pub fn paint_icon(painter: &Painter, center: Pos2, size: f32, kind: IconKind, co
                 Pos2::new(center.x + r * 0.50, center.y - r * 0.38),
             ];
             painter.add(eframe::egui::Shape::line(body, stroke));
-            // Inner ribs
+
             for dx in [-r * 0.16, r * 0.16] {
                 painter.line_segment(
                     [

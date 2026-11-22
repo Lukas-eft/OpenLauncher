@@ -18,7 +18,6 @@ use crate::ui::icons::{paint_icon, IconKind};
 use crate::ui::widgets::{glass_primary_button, glass_secondary_button, paint_cover_image};
 use crate::ui::{AddModalTab, AppAction, SidebarFilter};
 
-/// Responsive game grid including empty library and filter states.
 pub fn show(
     ui: &mut egui::Ui,
     games: &[&Game],
@@ -194,7 +193,6 @@ fn show_game_card(
     let radius_u8 = radius as u8;
     let p = ui.painter();
 
-    // Base glass card surface
     p.rect_filled(
         rect,
         radius,
@@ -205,7 +203,6 @@ fn show_game_card(
         },
     );
 
-    // 2:3 Cover or monochrome fallback
     let cover_rounding = CornerRadius {
         nw: radius_u8,
         ne: radius_u8,
@@ -245,7 +242,6 @@ fn show_game_card(
         );
     }
 
-    // Top-left badge: RUNNING or platform
     if is_running {
         let label = "RUNNING";
         let g = p.layout_no_wrap(label.to_string(), FontId::monospace(10.0), EMERALD_TEXT);
@@ -287,7 +283,6 @@ fn show_game_card(
         p.galley(badge_rect.center() - g.size() * 0.5, g, TEXT_SECONDARY);
     }
 
-    // Footer (Title + Playtime + first tag)
     p.line_segment(
         [
             Pos2::new(footer_rect.left() + 1.0, footer_rect.top()),
@@ -362,7 +357,6 @@ fn show_game_card(
         TEXT_DIM,
     );
 
-    // Subtle outer border
     p.rect_stroke(
         rect,
         radius,
@@ -377,7 +371,6 @@ fn show_game_card(
         StrokeKind::Inside,
     );
 
-    // Register base card interaction FIRST so overlay buttons placed afterwards take hit-test priority
     let card_resp = ui
         .interact(base_rect, Id::new(("card_open", &game.id)), Sense::click())
         .on_hover_cursor(CursorIcon::PointingHand);

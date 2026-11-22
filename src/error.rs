@@ -1,7 +1,6 @@
 use serde::Serialize;
 use thiserror::Error;
 
-/// Central error type for the OpenLauncher Rust backend.
 #[derive(Debug, Error)]
 pub enum AppError {
     #[error("Database error: {0}")]
@@ -35,5 +34,4 @@ impl Serialize for AppError {
     }
 }
 
-/// Unified Result type for backend and UI modules.
 pub type AppResult<T> = Result<T, AppError>;

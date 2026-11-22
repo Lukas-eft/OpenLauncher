@@ -14,7 +14,6 @@ pub mod toasts;
 pub mod topbar;
 pub mod widgets;
 
-/// Aktiver Bibliotheksfilter in Sidebar und TopBar.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum SidebarFilter {
     All,
@@ -36,7 +35,6 @@ impl SidebarFilter {
     }
 }
 
-/// Sort option for the game grid.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum SortOption {
     TitleAsc,
@@ -63,7 +61,6 @@ impl SortOption {
     }
 }
 
-/// Tabs im Dialog zum Hinzufügen eines Spiels.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum AddModalTab {
     Emulator,
@@ -71,7 +68,6 @@ pub enum AddModalTab {
     Manual,
 }
 
-/// Darstellungsvariante für Toast-Benachrichtigungen.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ToastVariant {
     Success,
@@ -79,7 +75,6 @@ pub enum ToastVariant {
     Error,
 }
 
-/// Einzelne schwebende Toast-Meldung.
 #[derive(Debug, Clone)]
 pub struct ToastItem {
     pub id: u64,
@@ -89,7 +84,6 @@ pub struct ToastItem {
     pub created_at: Instant,
 }
 
-/// Aktionen, die von UI-Komponenten an `OpenLauncherApp` gemeldet werden.
 #[derive(Debug, Clone)]
 pub enum AppAction {
     SelectFilter(SidebarFilter),

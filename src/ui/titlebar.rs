@@ -11,7 +11,6 @@ use crate::theme::{
 use crate::ui::icons::{paint_icon, IconKind};
 use crate::ui::widgets::status_badge;
 
-/// Borderless Liquid-Glass titlebar.
 pub fn show(ctx: &egui::Context, running_games: &[ActiveGameStatus]) {
     let is_maximized = ctx.input(|i| i.viewport().maximized.unwrap_or(false));
 
@@ -34,7 +33,7 @@ pub fn show(ctx: &egui::Context, running_games: &[ActiveGameStatus]) {
             );
 
             ui.horizontal_centered(|ui| {
-                // Linke Seite: Titel + Lauf-Status + Bibliotheksstatistik
+
                 ui.label(
                     egui::RichText::new("OpenLauncher")
                         .size(13.5)
@@ -55,7 +54,6 @@ pub fn show(ctx: &egui::Context, running_games: &[ActiveGameStatus]) {
                     );
                 }
 
-                // Draggable center area up to window buttons
                 let buttons_w = 122.0;
                 let drag_w = (ui.available_width() - buttons_w).max(20.0);
                 let (drag_rect, drag_resp) =
@@ -69,7 +67,6 @@ pub fn show(ctx: &egui::Context, running_games: &[ActiveGameStatus]) {
                 }
                 let _ = drag_rect;
 
-                // Rechte Seite: Minimieren, Maximieren/Wiederherstellen, Schließen
                 ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                     ui.spacing_mut().item_spacing.x = 2.0;
 

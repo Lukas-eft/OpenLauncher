@@ -6,7 +6,6 @@ use crate::ui::icons::IconKind;
 use crate::ui::widgets::{glass_pill_button, glass_secondary_button, section_overline};
 use crate::ui::{AddModalTab, AppAction, SidebarFilter};
 
-/// Linke Navigations-Sidebar mit Bibliothek, Plattformen, Tags und Aktions-Footer.
 pub fn show(
     ctx: &egui::Context,
     games: &[Game],
@@ -45,7 +44,6 @@ pub fn show(
                 Stroke::new(1.0_f32, BORDER_SUBTLE),
             );
 
-            // Fixierter Aktions-Footer am unteren Rand der Sidebar
             egui::TopBottomPanel::bottom("sidebar_footer")
                 .frame(
                     Frame::NONE
@@ -120,7 +118,6 @@ pub fn show(
                     });
                 });
 
-            // Scrollable navigation area
             ScrollArea::vertical()
                 .id_salt("sidebar_nav_scroll")
                 .auto_shrink([false, false])
@@ -135,7 +132,6 @@ pub fn show(
                         .show(ui, |ui| {
                             ui.spacing_mut().item_spacing.y = 3.0;
 
-                            // Section: Library
                             ui.horizontal(|ui| {
                                 ui.add_space(6.0);
                                 section_overline(ui, "Library");
@@ -183,7 +179,6 @@ pub fn show(
 
                             ui.add_space(16.0);
 
-                            // Section: Platform
                             ui.horizontal(|ui| {
                                 ui.add_space(6.0);
                                 section_overline(ui, "Platform");
@@ -237,7 +232,6 @@ pub fn show(
 
                             ui.add_space(16.0);
 
-                            // Section: Tags
                             ui.horizontal(|ui| {
                                 ui.add_space(6.0);
                                 section_overline(ui, "Tags");

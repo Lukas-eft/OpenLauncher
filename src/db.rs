@@ -16,7 +16,6 @@ use crate::models::{
 
 const SETTINGS_KEY: &str = "app_settings";
 
-/// Index bereits vorhandener Spiele für schnellen Duplikatabgleich bei Scans.
 #[derive(Debug, Clone, Default)]
 pub struct ExistingGameKeys {
     pub steam_app_ids: HashSet<String>,
@@ -34,20 +33,18 @@ impl ExistingGameKeys {
     }
 }
 
-/// Ergebnis eines Steam-Upserts in die SQLite-Datenbank.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum UpsertOutcome {
     Inserted,
     Updated,
 }
 
-/// Thread-sicherer Zugriff auf die lokale SQLite-Datenbank.
 pub struct Database {
     conn: Mutex<Connection>,
 }
 
 impl Database {
-    /// Öffnet (oder erstellt) die SQLite-Datenbank am angegebenen Dateipfad.
+
     pub fn open(path: &Path) -> AppResult<Self> {
         if let Some(parent) = path.parent() {
             fs::create_dir_all(parent)?;
@@ -63,7 +60,6 @@ impl Database {
         Ok(db)
     }
 
-    /// Öffnet eine isolierte In-Memory-Datenbank für Unit-Tests.
     #[cfg(test)]
     pub fn open_in_memory() -> AppResult<Self> {
         let conn = Connection::open_in_memory()?;
@@ -138,7 +134,6 @@ impl Database {
         Ok(())
     }
 
-    /// Listet alle Spiele inklusive zugeordneter Tags sortiert nach Titel auf.
     pub fn list_games(&self) -> AppResult<Vec<Game>> {
         let conn = self.lock_conn()?;
         let mut stmt = conn.prepare(
@@ -177,7 +172,6 @@ impl Database {
         Ok(games)
     }
 
-    /// Lädt ein einzelnes Spiel anhand seiner ID.
     pub fn get_game(&self, id: &str) -> AppResult<Game> {
         let conn = self.lock_conn()?;
         Self::get_game_with_conn(&conn, id)
@@ -210,7 +204,6 @@ impl Database {
         Ok(game)
     }
 
-    /// Erstellt ein neues manuell hinzugefügtes oder Emulator-Spiel.
     pub fn create_game(&self, input: NewGameInput) -> AppResult<Game> {
         let mut conn = self.lock_conn()?;
         let tx = conn.transaction()?;
@@ -220,13 +213,11 @@ impl Database {
         Self::get_game_with_conn(&conn, &id)
     }
 
-    /// Liefert normierte Schlüssel aller vorhandenen Spiele für Duplikaterkennung.
     pub fn find_existing_keys(&self) -> AppResult<ExistingGameKeys> {
         let conn = self.lock_conn()?;
         find_existing_keys_with_conn(&conn)
     }
 
-    /// Importiert mehrere erkannte Spiele transaktional und überspringt Duplikate.
     pub fn import_games_bulk(&self, items: Vec<NewGameInput>) -> AppResult<BulkImportResult> {
         let mut conn = self.lock_conn()?;
         let mut existing = find_existing_keys_with_conn(&conn)?;
@@ -280,7 +271,6 @@ impl Database {
         })
     }
 
-    /// Updates metadata and tags of an existing game.
     pub fn update_game(&self, input: UpdateGameInput) -> AppResult<Game> {
         let title = input.title.trim().to_string();
         if title.is_empty() {
@@ -340,7 +330,6 @@ impl Database {
         Self::get_game_with_conn(&conn, &input.id)
     }
 
-    /// Deletes a game along with its sessions and prunes orphaned tags.
     pub fn delete_game(&self, id: &str) -> AppResult<()> {
         let mut conn = self.lock_conn()?;
         let tx = conn.transaction()?;
@@ -353,7 +342,6 @@ impl Database {
         Ok(())
     }
 
-    /// Toggles the favorite flag of a game.
     pub fn toggle_favorite(&self, id: &str) -> AppResult<Game> {
         let now = Utc::now().to_rfc3339();
         let conn = self.lock_conn()?;
@@ -370,7 +358,6 @@ impl Database {
         Self::get_game_with_conn(&conn, id)
     }
 
-    /// Gibt alle vergebenen Tag-Namen alphabetisch sortiert zurück.
     pub fn list_all_tags(&self) -> AppResult<Vec<String>> {
         let conn = self.lock_conn()?;
         let mut stmt = conn.prepare("SELECT name FROM tags ORDER BY name COLLATE NOCASE ASC")?;
@@ -380,7 +367,6 @@ impl Database {
         Ok(tags)
     }
 
-    /// Fügt ein erkanntes Steam-Spiel ein oder aktualisiert Pfade ohne Nutzereinstellungen zu überschreiben.
     pub fn upsert_steam_game(&self, app: &SteamApp) -> AppResult<UpsertOutcome> {
         let conn = self.lock_conn()?;
         let existing: Option<(String, i32)> = conn
@@ -440,7 +426,6 @@ impl Database {
         }
     }
 
-    /// Legt eine neue offene Spielsession an und liefert deren ID.
     pub fn start_play_session(&self, game_id: &str, started_at: &str) -> AppResult<i64> {
         let conn = self.lock_conn()?;
         conn.execute(
@@ -451,7 +436,6 @@ impl Database {
         Ok(conn.last_insert_rowid())
     }
 
-    /// Schließt eine Spielsession ab und addiert die Dauer transaktional auf die Gesamtspielzeit.
     pub fn finish_play_session(
         &self,
         session_id: i64,
@@ -489,7 +473,6 @@ impl Database {
         Ok(total)
     }
 
-    /// Aktualisiert lediglich den Zeitstempel „Zuletzt gespielt“ (z. B. Steam-Fallback ohne erkannte PID).
     pub fn touch_last_played(&self, game_id: &str, played_at: &str) -> AppResult<()> {
         let conn = self.lock_conn()?;
         conn.execute(
@@ -499,7 +482,6 @@ impl Database {
         Ok(())
     }
 
-    /// Lädt die jüngsten Spielsessions eines Spiels (neueste zuerst).
     pub fn get_game_sessions(&self, game_id: &str, limit: usize) -> AppResult<Vec<PlaySession>> {
         let conn = self.lock_conn()?;
         let bounded = limit.clamp(1, 500) as i64;
@@ -524,7 +506,6 @@ impl Database {
         Ok(sessions)
     }
 
-    /// Liest die gespeicherten Anwendungseinstellungen.
     pub fn get_settings(&self) -> AppResult<AppSettings> {
         let conn = self.lock_conn()?;
         let raw: Option<String> = conn
@@ -543,7 +524,6 @@ impl Database {
         }
     }
 
-    /// Saves application settings persistently.
     pub fn save_settings(&self, settings: &AppSettings) -> AppResult<()> {
         let normalized = AppSettings {
             minimize_to_tray: settings.minimize_to_tray,
@@ -802,7 +782,6 @@ mod tests {
         assert!(updated.cover_is_local);
         assert_eq!(updated.tags, vec!["Indie"]);
 
-        // Verwaiste Tags ("Action", "Roguelike") müssen aufgeräumt worden sein
         let all_tags = db.list_all_tags().expect("list tags");
         assert_eq!(all_tags, vec!["Indie"]);
 
@@ -870,7 +849,6 @@ mod tests {
         db.finish_play_session(sid, &initial.id, "2026-11-22T12:30:00Z", 1800)
             .expect("finish session");
 
-        // Erneuter Steam-Scan mit aktualisiertem Installationspfad
         let moved_app = SteamApp {
             install_dir: PathBuf::from("D:\\SteamLibrary\\steamapps\\common\\Hades"),
             ..app
@@ -929,7 +907,6 @@ mod tests {
         assert_eq!(sessions[0].duration_seconds, 930);
         assert_eq!(sessions[1].id, s1);
 
-        // Cascade delete entfernt auch die Sessions
         db.delete_game(&game.id).expect("delete");
         let remaining = db.get_game_sessions(&game.id, 10).expect("empty sessions");
         assert!(remaining.is_empty());
@@ -973,7 +950,7 @@ mod tests {
         .expect("initial game");
 
         let batch = vec![
-            // Duplikat mit abweichender Groß-/Kleinschreibung im Pfad
+
             NewGameInput {
                 title: "Breath of the Wild".to_string(),
                 platform: Platform::Emulator,
@@ -988,7 +965,7 @@ mod tests {
                 is_favorite: false,
                 tags: vec!["Wii U".to_string()],
             },
-            // Neues Spiel
+
             NewGameInput {
                 title: "Mario Kart 8".to_string(),
                 platform: Platform::Emulator,
