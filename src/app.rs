@@ -1107,19 +1107,13 @@ impl eframe::App for OpenLauncherApp {
         }
 
         let mut actions = Vec::new();
-        let total_playtime_seconds: i64 = self.games.iter().map(|g| g.playtime_seconds).sum();
         let running_list: Vec<ActiveGameStatus> = self.running_games.values().cloned().collect();
 
-        // Randloses Fenster-Resizing an Kanten und Ecken
+        // Borderless window resize on edges and corners
         widgets::handle_borderless_window_resize(ctx);
 
-        // 1. Titelleiste (ohne "NATIVE APP"-Pill)
-        titlebar::show(
-            ctx,
-            self.games.len(),
-            total_playtime_seconds,
-            &running_list,
-        );
+        // 1. Titlebar
+        titlebar::show(ctx, &running_list);
 
         // 2. Linke Sidebar
         sidebar::show(

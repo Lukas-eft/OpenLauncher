@@ -3,22 +3,16 @@ use eframe::egui::{
     ViewportCommand,
 };
 
-use crate::format::format_playtime;
 use crate::models::ActiveGameStatus;
 use crate::theme::{
-    self, BG_TITLEBAR, BORDER_GLASS, BORDER_SUBTLE, EMERALD_BG, EMERALD_BORDER, EMERALD_DOT,
-    EMERALD_TEXT, TEXT_MUTED, TEXT_PRIMARY,
+    self, BG_TITLEBAR, BORDER_SUBTLE, EMERALD_BG, EMERALD_BORDER, EMERALD_DOT, EMERALD_TEXT,
+    TEXT_MUTED, TEXT_PRIMARY,
 };
 use crate::ui::icons::{paint_icon, IconKind};
 use crate::ui::widgets::status_badge;
 
-/// Randlose Liquid-Glass-Titelleiste ohne „NATIVE APP“-Pill.
-pub fn show(
-    ctx: &egui::Context,
-    game_count: usize,
-    total_playtime_seconds: i64,
-    running_games: &[ActiveGameStatus],
-) {
+/// Borderless Liquid-Glass titlebar.
+pub fn show(ctx: &egui::Context, running_games: &[ActiveGameStatus]) {
     let is_maximized = ctx.input(|i| i.viewport().maximized.unwrap_or(false));
 
     egui::TopBottomPanel::top("titlebar")
@@ -61,25 +55,7 @@ pub fn show(
                     );
                 }
 
-                if ui.available_width() > 360.0 {
-                    ui.add_space(4.0);
-                    let playtime_text = if total_playtime_seconds > 0 {
-                        format_playtime(total_playtime_seconds)
-                    } else {
-                        "0 hrs".to_string()
-                    };
-                    let stats_label = format!("{game_count} games · {playtime_text}");
-                    status_badge(
-                        ui,
-                        &stats_label,
-                        theme::rgba(22, 22, 27, 210),
-                        BORDER_GLASS,
-                        TEXT_MUTED,
-                        None,
-                    );
-                }
-
-                // Ziehbare Mitte bis zu den Fenster-Buttons
+                // Draggable center area up to window buttons
                 let buttons_w = 122.0;
                 let drag_w = (ui.available_width() - buttons_w).max(20.0);
                 let (drag_rect, drag_resp) =
