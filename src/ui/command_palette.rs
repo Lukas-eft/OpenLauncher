@@ -129,7 +129,7 @@ pub fn show(
                                 [input_w, 24.0],
                                 TextEdit::singleline(&mut state.query)
                                     .frame(false)
-                                    .hint_text("Spielname, Tag oder Plattform eingeben...")
+                                    .hint_text("Type game name, tag, or platform...")
                                     .font(FontId::proportional(14.0))
                                     .text_color(TEXT_PRIMARY),
                             );
@@ -168,7 +168,7 @@ pub fn show(
                                     ui.add_space(28.0);
                                     ui.vertical_centered(|ui| {
                                         ui.label(
-                                            egui::RichText::new("Keine passenden Spiele gefunden.")
+                                            egui::RichText::new("No matching games found.")
                                                 .size(12.5)
                                                 .color(TEXT_DIM),
                                         );
@@ -207,7 +207,7 @@ pub fn show(
                         ui.set_width(modal_w - 32.0);
                         ui.horizontal(|ui| {
                             ui.label(
-                                egui::RichText::new("↑↓ Navigieren")
+                                egui::RichText::new("↑↓ Navigate")
                                     .monospace()
                                     .size(10.5)
                                     .color(TEXT_DIM),
@@ -216,7 +216,7 @@ pub fn show(
                                 egui::Layout::right_to_left(egui::Align::Center),
                                 |ui| {
                                     ui.label(
-                                        egui::RichText::new("Enter Starten  ·  Shift+Enter Details")
+                                        egui::RichText::new("Enter Launch  ·  Shift+Enter Details")
                                             .monospace()
                                             .size(10.5)
                                             .color(TEXT_DIM),
@@ -337,7 +337,7 @@ fn palette_row(
             Stroke::new(1.0_f32, EMERALD_BORDER),
             StrokeKind::Inside,
         );
-        let g = p.layout_no_wrap("Läuft".to_string(), FontId::monospace(10.5), EMERALD_TEXT);
+        let g = p.layout_no_wrap("Running".to_string(), FontId::monospace(10.5), EMERALD_TEXT);
         p.galley(pill_rect.center() - g.size() * 0.5, g, EMERALD_TEXT);
     } else {
         p.rect(
@@ -354,7 +354,7 @@ fn palette_row(
             IconKind::Play,
             Color32::WHITE,
         );
-        let g = p.layout_no_wrap("Start".to_string(), FontId::proportional(11.0), Color32::WHITE);
+        let g = p.layout_no_wrap("Play".to_string(), FontId::proportional(11.0), Color32::WHITE);
         p.galley(
             Pos2::new(pill_rect.left() + 24.0, pill_rect.center().y - g.size().y * 0.5),
             g,

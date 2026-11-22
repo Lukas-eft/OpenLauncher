@@ -58,14 +58,14 @@ fn glass_action_button(
     tone: ButtonTone,
 ) -> Response {
     let font = FontId::proportional(12.5);
-    let galley = ui
+    let measure_galley = ui
         .painter()
-        .layout_no_wrap(label.to_string(), font, Color32::WHITE);
+        .layout_no_wrap(label.to_string(), font.clone(), Color32::WHITE);
 
     let is_primary = matches!(tone, ButtonTone::Primary);
     let icon_space = if icon.is_some() { 20.0 } else { 0.0 };
     let pad_x = if is_primary { 15.0 } else { 12.0 };
-    let width = pad_x * 2.0 + icon_space + galley.size().x;
+    let width = pad_x * 2.0 + icon_space + measure_galley.size().x;
     let height = if is_primary { 33.0 } else { 32.0 };
 
     let (rect, response) = ui.allocate_exact_size(
@@ -96,7 +96,7 @@ fn glass_action_button(
         match tone {
             ButtonTone::Primary => {
                 if enabled {
-                    // Weicher Drop-Shadow + subtiler silberner Hover-Glow
+                    // Soft drop-shadow + subtle silver hover glow
                     p.rect_filled(
                         draw_rect.translate(Vec2::new(0.0, 3.0)),
                         radius,
@@ -110,7 +110,7 @@ fn glass_action_button(
                         );
                     }
 
-                    // Zweistufiger Liquid-Glass-Verlauf (oben helles Silberweiß, unten Platin)
+                    // Two-tone liquid glass gradient
                     let bottom_bg = Color32::from_rgb(
                         (212.0 + 16.0 * hover_t) as u8,
                         (212.0 + 16.0 * hover_t) as u8,
@@ -138,7 +138,7 @@ fn glass_action_button(
                         top_bg,
                     );
 
-                    // Äußerer Glasrand + helle Specular-Oberkante
+                    // Outer glass border + specular top edge
                     p.rect_stroke(
                         draw_rect,
                         radius,
@@ -171,14 +171,15 @@ fn glass_action_button(
                 } else {
                     Color32::from_rgb(40, 40, 46)
                 };
+                let fg_galley = p.layout_no_wrap(label.to_string(), font, fg);
                 let mut x = draw_rect.left() + pad_x;
                 if let Some(kind) = icon {
                     paint_icon(p, Pos2::new(x + 6.5, draw_rect.center().y), 13.5, kind, fg);
                     x += icon_space;
                 }
                 p.galley(
-                    Pos2::new(x, draw_rect.center().y - galley.size().y * 0.5),
-                    galley,
+                    Pos2::new(x, draw_rect.center().y - fg_galley.size().y * 0.5),
+                    fg_galley,
                     fg,
                 );
             }
@@ -216,14 +217,15 @@ fn glass_action_button(
                     theme::paint_glass_specular_top(p, draw_rect, radius);
                 }
 
+                let fg_galley = p.layout_no_wrap(label.to_string(), font, fg);
                 let mut x = draw_rect.left() + pad_x;
                 if let Some(kind) = icon {
                     paint_icon(p, Pos2::new(x + 6.0, draw_rect.center().y), 13.0, kind, fg);
                     x += icon_space;
                 }
                 p.galley(
-                    Pos2::new(x, draw_rect.center().y - galley.size().y * 0.5),
-                    galley,
+                    Pos2::new(x, draw_rect.center().y - fg_galley.size().y * 0.5),
+                    fg_galley,
                     fg,
                 );
             }
@@ -233,7 +235,7 @@ fn glass_action_button(
     response
 }
 
-/// Navigations-Pill für Sidebar und Tab-Leisten.
+/// Navigation pill for sidebar and tab bars.
 pub fn glass_pill_button(
     ui: &mut Ui,
     icon: Option<IconKind>,
@@ -243,23 +245,23 @@ pub fn glass_pill_button(
     full_width: bool,
 ) -> Response {
     let font = FontId::proportional(12.5);
-    let galley = ui
+    let measure_galley = ui
         .painter()
-        .layout_no_wrap(label.to_string(), font, Color32::WHITE);
+        .layout_no_wrap(label.to_string(), font.clone(), Color32::WHITE);
 
-    let count_galley = trailing_count.map(|c| {
+    let measure_count = trailing_count.map(|c| {
         ui.painter()
             .layout_no_wrap(c.to_string(), FontId::monospace(11.0), Color32::WHITE)
     });
 
     let icon_w = if icon.is_some() { 20.0 } else { 0.0 };
-    let count_w = count_galley
+    let count_w = measure_count
         .as_ref()
         .map_or(0.0, |g| g.size().x + 12.0);
     let width = if full_width {
         ui.available_width()
     } else {
-        20.0 + icon_w + galley.size().x + count_w
+        20.0 + icon_w + measure_galley.size().x + count_w
     };
     let height = 31.0;
 
@@ -300,23 +302,26 @@ pub fn glass_pill_button(
             x += 22.0;
         }
 
+        let fg_galley = p.layout_no_wrap(label.to_string(), font, fg);
         let max_text_right = rect.right() - 10.0 - count_w;
         let text_clip = Rect::from_min_max(
             Pos2::new(x, rect.top()),
             Pos2::new(max_text_right.max(x), rect.bottom()),
         );
         p.with_clip_rect(text_clip).galley(
-            Pos2::new(x, rect.center().y - galley.size().y * 0.5),
-            galley,
+            Pos2::new(x, rect.center().y - fg_galley.size().y * 0.5),
+            fg_galley,
             fg,
         );
 
-        if let Some(cg) = count_galley {
+        if let Some(c) = trailing_count {
+            let count_fg = if active { TEXT_SECONDARY } else { TEXT_DIM };
+            let cg = p.layout_no_wrap(c.to_string(), FontId::monospace(11.0), count_fg);
             let cx = rect.right() - 10.0 - cg.size().x;
             p.galley(
                 Pos2::new(cx, rect.center().y - cg.size().y * 0.5),
                 cg,
-                if active { TEXT_SECONDARY } else { TEXT_DIM },
+                count_fg,
             );
         }
     }

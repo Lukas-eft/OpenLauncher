@@ -11,8 +11,9 @@ use crate::steam;
 const MAX_COVER_BYTES: u64 = 15 * 1024 * 1024;
 const ALLOWED_IMAGE_EXTS: &[&str] = &["png", "jpg", "jpeg", "webp", "gif", "avif"];
 
-static STEAM_ASSET_CACHE: OnceLock<Mutex<HashMap<String, (Option<String>, Option<String>)>>> =
-    OnceLock::new();
+type SteamAssetMap = HashMap<String, (Option<String>, Option<String>)>;
+
+static STEAM_ASSET_CACHE: OnceLock<Mutex<SteamAssetMap>> = OnceLock::new();
 
 /// Resolves the OpenLauncher application data directory (`%APPDATA%\com.openlauncher.app` on Windows),
 /// creates it if needed, and migrates any legacy `openlibrary.sqlite`.

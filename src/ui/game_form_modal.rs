@@ -177,7 +177,7 @@ impl GameFormState {
         self.emu_selected = items.iter().map(|i| !i.already_imported).collect();
         if items.is_empty() {
             self.error = Some(format!(
-                "Keine passenden {preset_name}-Spiele in diesem Ordner gefunden."
+                "No matching {preset_name} games found in this folder."
             ));
         } else {
             self.error = None;
@@ -230,20 +230,20 @@ impl GameFormState {
             if info.executable_path.is_none() {
                 if let Some(ref emu_id) = info.detected_emulator_id {
                     self.smart_hint = Some(format!(
-                        "ROM erkannt ({}). Wähle unten noch das Emulator-Programm aus.",
+                        "ROM detected ({}). Select the emulator executable below.",
                         emu_id.to_ascii_uppercase()
                     ));
                 }
             } else {
                 self.smart_hint =
-                    Some("ROM & Emulator automatisch erkannt und vorausgefüllt.".to_string());
+                    Some("ROM & emulator auto-detected and pre-filled.".to_string());
             }
         } else if info.is_emulator_binary {
             self.smart_hint = Some(
-                "Emulator erkannt. Wähle im Tab „Emulator (Cemu, …)“ direkt deinen ROM-Ordner für schnellen Import.".to_string(),
+                "Emulator detected. Switch to \"Emulator (Cemu, …)\" to scan your ROM folder directly.".to_string(),
             );
         } else if info.cover_path.is_some() {
-            self.smart_hint = Some("Spiel & Cover im Ordner automatisch erkannt.".to_string());
+            self.smart_hint = Some("Game & cover auto-detected in folder.".to_string());
         } else {
             self.smart_hint = None;
         }
@@ -307,7 +307,7 @@ impl GameFormState {
             .map(|p| p.name.as_str())
             .unwrap_or("Emulator");
         self.smart_hint = Some(format!(
-            "{preset_name}-Spiel erkannt („{}“). Überprüfe die Angaben und klicke auf „Spiel hinzufügen“.",
+            "{preset_name} game detected (\"{}\"). Review the fields and click \"Add Game\".",
             info.title
         ));
         self.active_tab = AddModalTab::Manual;
@@ -364,9 +364,9 @@ pub fn show(
                     .show(ui, |ui| {
                         ui.horizontal(|ui| {
                             let heading = if state.is_editing() {
-                                format!("{} bearbeiten", state.title)
+                                format!("Edit {}", state.title)
                             } else {
-                                "Spiel hinzufügen".to_string()
+                                "Add Game".to_string()
                             };
                             ui.label(
                                 egui::RichText::new(heading)
@@ -393,14 +393,21 @@ pub fn show(
                                             (
                                                 AddModalTab::Discover,
                                                 IconKind::FolderSearch,
-                                                "Auto-Erkennung",
+                                                "Auto-Discover",
                                             ),
-                                            (AddModalTab::Manual, IconKind::Plus, "Manuell"),
+                                            (AddModalTab::Manual, IconKind::Plus, "Manual"),
                                         ] {
                                             let active = state.active_tab == tab;
                                             if tab_pill(ui, icon, label, active).clicked() {
                                                 state.error = None;
                                                 state.active_tab = tab;
+                                                if tab == AddModalTab::Discover
+                                                    && state.discover_items.is_empty()
+                                                    && !state.discover_busy
+                                                {
+                                                    state.discover_busy = true;
+                                                    actions.push(AppAction::ScanPcStores);
+                                                }
                                             }
                                         }
                                     });
@@ -490,16 +497,16 @@ fn show_emulator_tab(
 
     ui.horizontal(|ui| {
         ui.label(
-            egui::RichText::new("1. Emulator wählen")
+            egui::RichText::new("1. Select Emulator")
                 .size(12.5)
                 .strong()
                 .color(TEXT_SECONDARY),
         );
         ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
             let status_txt = if state.presets_loading {
-                "Suche Emulatoren...".to_string()
+                "Searching emulators...".to_string()
             } else {
-                format!("{detected_count} lokal erkannt")
+                format!("{detected_count} detected locally")
             };
             ui.label(
                 egui::RichText::new(status_txt)
@@ -510,7 +517,7 @@ fn show_emulator_tab(
         });
     });
 
-    // Preset-Grid (3 Spalten)
+    // Preset grid (3 columns)
     let gap = 8.0;
     let cols = 3usize;
     let avail_w = ui.available_width();
@@ -533,6 +540,15 @@ fn show_emulator_tab(
                         state.emu_discovered.clear();
                         state.emu_selected.clear();
                         state.error = None;
+                        if let Some(first_dir) = preset.detected_rom_dirs.first() {
+                            state.emu_scan_busy = true;
+                            actions.push(AppAction::ScanEmulatorFolder {
+                                preset_id: preset.id.clone(),
+                                emulator_path: opt_trimmed(&state.emu_exe_path),
+                                rom_dir: first_dir.clone(),
+                                fullscreen: state.emu_fullscreen,
+                            });
+                        }
                     }
                 }
             });
@@ -545,7 +561,7 @@ fn show_emulator_tab(
             ui.spacing_mut().item_spacing.y = 10.0;
 
             ui.label(
-                egui::RichText::new(format!("2. {}-Programmdatei", preset.name))
+                egui::RichText::new(format!("2. {} Executable", preset.name))
                     .size(12.0)
                     .strong()
                     .color(TEXT_SECONDARY),
@@ -556,11 +572,11 @@ fn show_emulator_tab(
                 glass_text_edit(
                     ui,
                     &mut state.emu_exe_path,
-                    &format!("Pfad zu {} (z. B. Cemu.exe)", preset.name),
+                    &format!("Path to {} (e.g. Cemu.exe)", preset.name),
                     true,
                     Some(input_w),
                 );
-                if glass_secondary_button(ui, Some(IconKind::Folder), "Wählen", true).clicked()
+                if glass_secondary_button(ui, Some(IconKind::Folder), "Browse", true).clicked()
                 {
                     actions.push(AppAction::PickEmulatorBinary);
                 }
@@ -572,7 +588,7 @@ fn show_emulator_tab(
                 if glass_pill_button(
                     ui,
                     fs_icon,
-                    "Vollbild starten",
+                    "Launch Fullscreen",
                     state.emu_fullscreen,
                     None,
                     false,
@@ -593,7 +609,7 @@ fn show_emulator_tab(
                         ui.set_width(ui.available_width());
                         ui.label(
                             egui::RichText::new(format!(
-                                "Erkannte {}-Spieleordner (aus settings.xml):",
+                                "Detected {} game folders:",
                                 preset.name
                             ))
                             .size(11.0)
@@ -628,9 +644,9 @@ fn show_emulator_tab(
             ui.horizontal_wrapped(|ui| {
                 ui.spacing_mut().item_spacing = Vec2::splat(8.0);
                 let scan_lbl = if state.emu_scan_busy {
-                    "Scanne Ordner..."
+                    "Scanning folder..."
                 } else {
-                    "ROM-Ordner scannen"
+                    "Scan ROM Folder"
                 };
                 if glass_primary_button(
                     ui,
@@ -648,7 +664,7 @@ fn show_emulator_tab(
                 if glass_secondary_button(
                     ui,
                     Some(IconKind::Plus),
-                    "Einzelne Spiel-Datei wählen",
+                    "Pick Single Game File",
                     true,
                 )
                 .clicked()
@@ -682,7 +698,7 @@ fn show_emulator_tab(
         let preset_name = state
             .selected_preset()
             .map(|p| p.name.clone())
-            .unwrap_or_else(|| "den Emulator".to_string());
+            .unwrap_or_else(|| "the emulator".to_string());
         if let Some(items_to_import) = show_discovered_list(
             ui,
             "emu_discovered_list",
@@ -698,7 +714,7 @@ fn show_emulator_tab(
                     .any(|g| g.executable_path.is_none())
             {
                 state.error = Some(format!(
-                    "Bitte wähle zuerst das Programm für {preset_name} aus (z. B. Cemu.exe)."
+                    "Please select the {preset_name} executable first (e.g. Cemu.exe)."
                 ));
             } else {
                 let payload = items_to_import
@@ -725,8 +741,8 @@ fn show_discover_tab(
             ui,
             half_w,
             IconKind::Refresh,
-            "Installierte PC-Stores scannen",
-            "Erkennt automatisch Spiele von Steam, Epic Games & GOG Galaxy.",
+            "Scan Installed Stores & Emulators",
+            "Automatically detects Steam, Epic Games, GOG Galaxy & emulator libraries.",
             !state.discover_busy,
         )
         .clicked()
@@ -741,8 +757,8 @@ fn show_discover_tab(
             ui,
             half_w,
             IconKind::FolderSearch,
-            "Spiele-Ordner scannen",
-            "Durchsucht z. B. D:\\Games automatisch nach .exe-Hauptdateien & Covern.",
+            "Scan Games Folder",
+            "Searches e.g. D:\\Games automatically for .exe binaries & covers.",
             !state.discover_busy,
         )
         .clicked()
@@ -754,7 +770,7 @@ fn show_discover_tab(
 
     if state.discover_busy {
         ui.label(
-            egui::RichText::new("Scanne installierte Spiele...")
+            egui::RichText::new("Scanning installed games...")
                 .size(12.0)
                 .color(TEXT_MUTED),
         );
@@ -796,7 +812,7 @@ fn show_manual_tab(
                     ui.set_max_width((ui.available_width() - 205.0).max(160.0));
                     ui.label(
                         egui::RichText::new(
-                            "Wähle eine .exe-, .desktop- oder ROM-Datei – Titel, Pfad, Argumente & Cover werden automatisch erkannt.",
+                            "Select an .exe, .desktop, or ROM file – title, path, arguments & cover are detected automatically.",
                         )
                         .size(11.5)
                         .color(TEXT_SECONDARY),
@@ -807,7 +823,7 @@ fn show_manual_tab(
                     if glass_secondary_button(
                         ui,
                         Some(IconKind::Folder),
-                        "Datei wählen & erkennen",
+                        "Select & Detect File",
                         true,
                     )
                     .clicked()
@@ -880,7 +896,7 @@ fn show_manual_tab(
                     glass_secondary_button(
                         ui,
                         Some(IconKind::ImagePlus),
-                        "Lokales Cover",
+                        "Local Cover",
                         true,
                     )
                 })
@@ -890,7 +906,7 @@ fn show_manual_tab(
             }
 
             if !state.cover_url.trim().is_empty()
-                && glass_secondary_button(ui, Some(IconKind::Trash), "Cover entfernen", true)
+                && glass_secondary_button(ui, Some(IconKind::Trash), "Remove Cover", true)
                     .clicked()
             {
                 state.cover_url.clear();
@@ -898,28 +914,28 @@ fn show_manual_tab(
             }
         });
 
-        // Rechte Spalte: Eingabefelder
+        // Right column: input fields
         ui.vertical(|ui| {
             ui.set_width(ui.available_width());
             ui.spacing_mut().item_spacing.y = 10.0;
 
-            field_label(ui, "Titel *");
+            field_label(ui, "Title *");
             glass_text_edit(
                 ui,
                 &mut state.title,
-                "z. B. Breath of the Wild oder Hades II",
+                "e.g. Breath of the Wild or Hades II",
                 false,
                 None,
             );
 
-            // Plattform + Steam AppID / Favorit
+            // Platform + Steam AppID / Favorite
             let col_w = ((ui.available_width() - 12.0) * 0.5).max(120.0);
             ui.horizontal_top(|ui| {
                 ui.spacing_mut().item_spacing.x = 12.0;
 
                 ui.vertical(|ui| {
                     ui.set_width(col_w);
-                    field_label(ui, "Plattform");
+                    field_label(ui, "Platform");
                     egui::ComboBox::from_id_salt("form_platform_combo")
                         .selected_text(platform_label(state.platform))
                         .width(col_w)
@@ -937,7 +953,7 @@ fn show_manual_tab(
                         glass_text_edit(
                             ui,
                             &mut state.steam_app_id,
-                            "z. B. 1145360",
+                            "e.g. 1145360",
                             true,
                             Some(col_w),
                         );
@@ -946,7 +962,7 @@ fn show_manual_tab(
                         ui.horizontal(|ui| {
                             glass_toggle(ui, &mut state.is_favorite);
                             ui.label(
-                                egui::RichText::new("Als Favorit markieren")
+                                egui::RichText::new("Mark as Favorite")
                                     .size(12.0)
                                     .color(TEXT_SECONDARY),
                             );
@@ -956,52 +972,52 @@ fn show_manual_tab(
             });
 
             let exe_label = if state.platform == Platform::Emulator {
-                "Emulator-Programmdatei (z. B. Cemu.exe)"
+                "Emulator Executable (e.g. Cemu.exe)"
             } else {
-                "Ausführbare Datei (.exe / Binary / .desktop)"
+                "Executable File (.exe / Binary / .desktop)"
             };
             field_label(ui, exe_label);
             ui.horizontal(|ui| {
                 let w = (ui.available_width() - 92.0).max(140.0);
                 let hint = if state.platform == Platform::Emulator {
-                    r"z. B. C:\Emulators\Cemu\Cemu.exe"
+                    r"e.g. C:\Emulators\Cemu\Cemu.exe"
                 } else {
-                    "Pfad zur .exe, Linux-Binary oder .desktop-Datei"
+                    "Path to .exe, Linux binary, or .desktop file"
                 };
                 glass_text_edit(ui, &mut state.executable_path, hint, true, Some(w));
-                if glass_secondary_button(ui, Some(IconKind::Folder), "Wählen", true).clicked()
+                if glass_secondary_button(ui, Some(IconKind::Folder), "Browse", true).clicked()
                 {
                     actions.push(AppAction::PickExecutableForInspect);
                 }
             });
 
-            field_label(ui, "Launch-Argumente (optional)");
+            field_label(ui, "Launch Arguments (optional)");
             glass_text_edit(
                 ui,
                 &mut state.launch_args,
-                r#"z. B. -f -g "D:\WiiU\BotW.wua""#,
+                r#"e.g. -f -g "D:\WiiU\BotW.wua""#,
                 true,
                 None,
             );
 
-            field_label(ui, "Arbeitsverzeichnis (optional)");
+            field_label(ui, "Working Directory (optional)");
             ui.horizontal(|ui| {
                 let w = (ui.available_width() - 92.0).max(140.0);
                 glass_text_edit(
                     ui,
                     &mut state.working_dir,
-                    "Automatisch (Ordner der ausführbaren Datei)",
+                    "Automatic (executable parent directory)",
                     true,
                     Some(w),
                 );
-                if glass_secondary_button(ui, Some(IconKind::Folder), "Ordner", true).clicked()
+                if glass_secondary_button(ui, Some(IconKind::Folder), "Folder", true).clicked()
                 {
                     actions.push(AppAction::PickWorkingDir);
                 }
             });
 
             if !state.cover_is_local {
-                field_label(ui, "Cover-URL (optional)");
+                field_label(ui, "Cover URL (optional)");
                 let resp = glass_text_edit(
                     ui,
                     &mut state.cover_url,
@@ -1015,11 +1031,11 @@ fn show_manual_tab(
             }
 
             if state.platform == Platform::Steam {
-                field_label(ui, "Installationsordner (für Playtime-Tracking)");
+                field_label(ui, "Install Directory (for playtime tracking)");
                 glass_text_edit(
                     ui,
                     &mut state.install_dir,
-                    r"z. B. C:\Program Files (x86)\Steam\steamapps\common\Hades",
+                    r"e.g. C:\Program Files (x86)\Steam\steamapps\common\Hades",
                     true,
                     None,
                 );
@@ -1027,7 +1043,7 @@ fn show_manual_tab(
         });
     });
 
-    // Tags-Bereich
+    // Tags section
     glass_well_frame().show(ui, |ui| {
         ui.set_width(ui.available_width());
         ui.spacing_mut().item_spacing.y = 8.0;
@@ -1078,7 +1094,7 @@ fn show_manual_tab(
             let resp = glass_text_edit(
                 ui,
                 &mut state.tag_draft,
-                "Tag eingeben und Enter drücken (z. B. Wii U, RPG, Indie)",
+                "Type a tag and press Enter (e.g. Wii U, RPG, Indie)",
                 false,
                 Some(w),
             );
@@ -1088,7 +1104,7 @@ fn show_manual_tab(
                 let draft = state.tag_draft.clone();
                 state.add_tag_from_draft(&draft);
             }
-            if glass_secondary_button(ui, Some(IconKind::Plus), "Hinzufügen", true).clicked() {
+            if glass_secondary_button(ui, Some(IconKind::Plus), "Add", true).clicked() {
                 let draft = state.tag_draft.clone();
                 state.add_tag_from_draft(&draft);
             }
@@ -1103,7 +1119,7 @@ fn show_manual_tab(
             ui.horizontal_wrapped(|ui| {
                 ui.spacing_mut().item_spacing = Vec2::splat(6.0);
                 ui.label(
-                    egui::RichText::new("Vorschläge:")
+                    egui::RichText::new("Suggestions:")
                         .size(11.0)
                         .color(TEXT_DIM),
                 );
@@ -1117,27 +1133,27 @@ fn show_manual_tab(
         }
     });
 
-    // Footer: Abbrechen + Speichern
+    // Footer: Cancel + Save
     ui.horizontal(|ui| {
         ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
             let submit_lbl = if state.is_submitting {
-                "Speichere..."
+                "Saving..."
             } else if state.is_editing() {
-                "Änderungen speichern"
+                "Save Changes"
             } else {
-                "Spiel hinzufügen"
+                "Add Game"
             };
             if glass_primary_button(ui, None, submit_lbl, !state.is_submitting).clicked() {
                 let title = state.title.trim().to_string();
                 if title.is_empty() {
-                    state.error = Some("Bitte gib einen Spieltitel an.".to_string());
+                    state.error = Some("Please enter a game title.".to_string());
                     return;
                 }
                 if state.platform != Platform::Steam && state.executable_path.trim().is_empty() {
                     state.error = Some(if state.platform == Platform::Emulator {
-                        "Bitte wähle das Emulator-Programm (z. B. Cemu.exe) aus.".to_string()
+                        "Please select the emulator executable (e.g. Cemu.exe).".to_string()
                     } else {
-                        "Bitte wähle eine ausführbare Datei oder einen Starter aus.".to_string()
+                        "Please select an executable file or launcher.".to_string()
                     });
                     return;
                 }
@@ -1179,7 +1195,7 @@ fn show_manual_tab(
                 }
             }
 
-            if glass_secondary_button(ui, None, "Abbrechen", true).clicked() {
+            if glass_secondary_button(ui, None, "Cancel", true).clicked() {
                 state.close_requested_flag = true;
             }
         });
@@ -1200,19 +1216,19 @@ fn show_discovered_list(
         ui.set_width(ui.available_width());
         ui.spacing_mut().item_spacing.y = 10.0;
 
-        // Kopfzeile mit Filterfeld & Auswahl-Aktionen
+        // Header with filter field & selection actions
         ui.horizontal(|ui| {
-            let search_w = (ui.available_width() - 270.0).max(140.0);
-            glass_text_edit(ui, search, "Erkannte Spiele filtern...", false, Some(search_w));
+            let search_w = (ui.available_width() - 250.0).max(140.0);
+            glass_text_edit(ui, search, "Filter discovered games...", false, Some(search_w));
 
-            if glass_secondary_button(ui, None, "Alle neuen auswählen", true).clicked() {
+            if glass_secondary_button(ui, None, "Select All New", true).clicked() {
                 for (i, item) in items.iter().enumerate() {
                     if let Some(slot) = selected.get_mut(i) {
                         *slot = !item.already_imported;
                     }
                 }
             }
-            if glass_secondary_button(ui, None, "Auswahl aufheben", true).clicked() {
+            if glass_secondary_button(ui, None, "Clear Selection", true).clicked() {
                 for slot in selected.iter_mut() {
                     *slot = false;
                 }
@@ -1306,7 +1322,7 @@ fn show_discovered_list(
                                         if item.already_imported {
                                             status_badge(
                                                 ui,
-                                                "Bereits vorhanden",
+                                                "Already imported",
                                                 theme::rgba(255, 255, 255, 7),
                                                 BORDER_SUBTLE,
                                                 TEXT_DIM,
@@ -1348,7 +1364,7 @@ fn show_discovered_list(
         ui.horizontal(|ui| {
             ui.label(
                 egui::RichText::new(format!(
-                    "{selected_count} von {} Spielen ausgewählt",
+                    "{selected_count} of {} games selected",
                     items.len()
                 ))
                 .size(11.5)
@@ -1356,9 +1372,9 @@ fn show_discovered_list(
             );
             ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                 let lbl = if is_submitting {
-                    "Importiere...".to_string()
+                    "Importing...".to_string()
                 } else {
-                    format!("{selected_count} ausgewählte importieren")
+                    format!("Import {selected_count} selected")
                 };
                 if glass_primary_button(
                     ui,
@@ -1385,11 +1401,11 @@ fn show_discovered_list(
 
 fn tab_pill(ui: &mut egui::Ui, icon: IconKind, label: &str, active: bool) -> egui::Response {
     let font = egui::FontId::proportional(11.5);
-    let galley = ui
+    let measure = ui
         .painter()
-        .layout_no_wrap(label.to_string(), font, Color32::WHITE);
+        .layout_no_wrap(label.to_string(), font.clone(), Color32::WHITE);
     let (rect, resp) =
-        ui.allocate_exact_size(Vec2::new(galley.size().x + 34.0, 25.0), Sense::click());
+        ui.allocate_exact_size(Vec2::new(measure.size().x + 34.0, 25.0), Sense::click());
     let resp = resp.on_hover_cursor(CursorIcon::PointingHand);
 
     if ui.is_rect_visible(rect) {
@@ -1423,6 +1439,7 @@ fn tab_pill(ui: &mut egui::Ui, icon: IconKind, label: &str, active: bool) -> egu
             icon,
             fg,
         );
+        let galley = p.layout_no_wrap(label.to_string(), font, fg);
         p.galley(
             Pos2::new(rect.left() + 25.0, rect.center().y - galley.size().y * 0.5),
             galley,

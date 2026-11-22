@@ -133,11 +133,11 @@ pub fn show(
 
 fn segment_chip(ui: &mut egui::Ui, label: &str, active: bool) -> egui::Response {
     let font = FontId::proportional(12.0);
-    let galley = ui
+    let measure = ui
         .painter()
-        .layout_no_wrap(label.to_string(), font, Color32::WHITE);
+        .layout_no_wrap(label.to_string(), font.clone(), Color32::WHITE);
     let (rect, resp) =
-        ui.allocate_exact_size(Vec2::new(galley.size().x + 18.0, 25.0), Sense::click());
+        ui.allocate_exact_size(Vec2::new(measure.size().x + 18.0, 25.0), Sense::click());
     let resp = resp.on_hover_cursor(CursorIcon::PointingHand);
     if ui.is_rect_visible(rect) {
         let hovered = resp.hovered();
@@ -163,6 +163,7 @@ fn segment_chip(ui: &mut egui::Ui, label: &str, active: bool) -> egui::Response 
         if active {
             theme::paint_glass_specular_top(p, rect, 7.0);
         }
+        let galley = p.layout_no_wrap(label.to_string(), font, fg);
         p.galley(rect.center() - galley.size() * 0.5, galley, fg);
     }
     resp

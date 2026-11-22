@@ -2,8 +2,8 @@ use std::time::Duration;
 
 use chrono::{DateTime, Utc};
 use eframe::egui::{
-    self, Align2, Color32, CornerRadius, FontId, Frame, Id, Margin, Pos2, Rect, ScrollArea,
-    Sense, Stroke, StrokeKind, Vec2,
+    self, Align2, Color32, CornerRadius, CursorIcon, FontId, Frame, Id, Margin, Pos2, Rect,
+    ScrollArea, Sense, Stroke, StrokeKind, Vec2,
 };
 
 use crate::covers::cover_image_uri;
@@ -15,11 +15,11 @@ use crate::theme::{
     self, BG_GLASS_SURFACE, BORDER_GLASS, BORDER_SUBTLE, EMERALD_BG, EMERALD_BORDER, EMERALD_DOT,
     EMERALD_TEXT, TEXT_DIM, TEXT_MUTED, TEXT_PRIMARY, TEXT_SECONDARY,
 };
-use crate::ui::icons::IconKind;
+use crate::ui::icons::{paint_icon, IconKind};
 use crate::ui::widgets::{
-    glass_danger_button, glass_icon_button, glass_modal_frame, glass_pill_button,
-    glass_primary_button, glass_secondary_button, glass_well_frame, paint_cover_image,
-    paint_modal_backdrop_order, section_overline, status_badge,
+    glass_danger_button, glass_modal_frame, glass_pill_button, glass_primary_button,
+    glass_secondary_button, glass_well_frame, paint_cover_image, paint_modal_backdrop,
+    section_overline, status_badge,
 };
 use crate::ui::AppAction;
 
@@ -57,9 +57,7 @@ pub fn show(
         return;
     }
 
-    if paint_modal_backdrop_order(ctx, "detail_modal_backdrop", egui::Order::Middle)
-        && allow_escape_close
-    {
+    if paint_modal_backdrop(ctx, "detail_modal_backdrop") && allow_escape_close {
         actions.push(AppAction::CloseDetailModal);
         return;
     }
@@ -73,7 +71,7 @@ pub fn show(
     let max_h = (screen.height() - 48.0).max(400.0);
 
     egui::Area::new(Id::new("detail_modal_panel"))
-        .order(egui::Order::Middle)
+        .order(egui::Order::Foreground)
         .movable(false)
         .anchor(Align2::CENTER_CENTER, Vec2::ZERO)
         .show(ctx, |ui| {
@@ -82,15 +80,18 @@ pub fn show(
 
             glass_modal_frame().show(ui, |ui| {
                 ui.set_width(modal_w);
+                ui.set_max_width(modal_w);
                 ui.set_max_height(max_h);
 
                 ScrollArea::vertical()
                     .id_salt("detail_modal_scroll")
                     .auto_shrink([false, true])
                     .show(ui, |ui| {
-                        // Hero-Banner
+                        ui.set_width(modal_w);
+
+                        // Hero banner spanning full modal width
                         let (hero_rect, _) =
-                            ui.allocate_exact_size(Vec2::new(modal_w, 178.0), Sense::hover());
+                            ui.allocate_exact_size(Vec2::new(modal_w, 152.0), Sense::hover());
                         let hero_rounding = CornerRadius {
                             nw: 16,
                             ne: 16,
@@ -106,7 +107,7 @@ pub fn show(
                                 h,
                                 hero_rect,
                                 hero_rounding,
-                                theme::rgba(255, 255, 255, 175),
+                                theme::rgba(255, 255, 255, 195),
                                 1.0,
                             )
                         }) || cover_uri.as_deref().is_some_and(|c| {
@@ -115,7 +116,7 @@ pub fn show(
                                 c,
                                 hero_rect,
                                 hero_rounding,
-                                theme::rgba(255, 255, 255, 90),
+                                theme::rgba(255, 255, 255, 110),
                                 1.08,
                             )
                         });
@@ -124,49 +125,70 @@ pub fn show(
                             theme::paint_monochrome_gradient(ui.painter(), hero_rect, 16.0);
                         }
 
-                        // Dunkler Verlaufsübergang ins Elevated-Panel
+                        // Subtle bottom fade into elevated modal surface
                         let fade_rect = Rect::from_min_max(
-                            Pos2::new(hero_rect.left(), hero_rect.top() + 54.0),
+                            Pos2::new(hero_rect.left(), hero_rect.bottom() - 48.0),
                             hero_rect.max,
                         );
                         ui.painter().rect_filled(
                             fade_rect,
                             CornerRadius::ZERO,
-                            theme::rgba(20, 20, 25, 185),
+                            theme::rgba(18, 18, 22, 200),
                         );
 
-                        // Schließen-Button im Hero oben rechts
+                        // Close button in the exact top-right corner of the hero/modal
                         let close_rect = Rect::from_center_size(
-                            Pos2::new(hero_rect.right() - 24.0, hero_rect.top() + 24.0),
+                            Pos2::new(hero_rect.right() - 22.0, hero_rect.top() + 22.0),
                             Vec2::splat(30.0),
                         );
                         let close_resp = ui
-                            .allocate_new_ui(egui::UiBuilder::new().max_rect(close_rect), |ui| {
-                                glass_icon_button(
-                                    ui,
-                                    "detail_close_btn",
-                                    IconKind::Close,
-                                    30.0,
-                                    false,
-                                    false,
-                                )
-                            })
-                            .inner;
+                            .interact(close_rect, Id::new("detail_close_btn"), Sense::click())
+                            .on_hover_cursor(CursorIcon::PointingHand);
+                        let close_hov = close_resp.hovered();
+                        let p = ui.painter();
+                        p.circle_filled(
+                            close_rect.center(),
+                            15.0,
+                            if close_hov {
+                                theme::rgba(32, 32, 40, 235)
+                            } else {
+                                theme::rgba(14, 14, 18, 205)
+                            },
+                        );
+                        p.circle_stroke(
+                            close_rect.center(),
+                            15.0,
+                            Stroke::new(
+                                1.0_f32,
+                                if close_hov {
+                                    theme::BORDER_HOVER
+                                } else {
+                                    BORDER_GLASS
+                                },
+                            ),
+                        );
+                        paint_icon(
+                            p,
+                            close_rect.center(),
+                            14.0,
+                            IconKind::Close,
+                            if close_hov { Color32::WHITE } else { TEXT_SECONDARY },
+                        );
                         if close_resp.clicked() {
                             actions.push(AppAction::CloseDetailModal);
                         }
 
-                        // Inhalt unterhalb des Hero-Banners
+                        // Content cleanly below the hero banner
                         Frame::NONE
                             .inner_margin(Margin {
                                 left: 24,
                                 right: 24,
-                                top: 0,
+                                top: 16,
                                 bottom: 24,
                             })
                             .show(ui, |ui| {
-                                // Kopfzeile mit 2:3-Cover + Titel + Aktionen
-                                ui.add_space(6.0);
+                                ui.set_width((modal_w - 48.0).max(200.0));
+                                // Header row: 2:3 cover + title + actions
                                 ui.horizontal(|ui| {
                                     ui.spacing_mut().item_spacing.x = 18.0;
 
@@ -246,7 +268,7 @@ pub fn show(
                                                         .max(0)
                                                 });
                                                 let lbl = format!(
-                                                    "LÄUFT · {}",
+                                                    "RUNNING · {}",
                                                     format_duration_exact(elapsed)
                                                 );
                                                 status_badge(
@@ -272,9 +294,9 @@ pub fn show(
                                             ui.spacing_mut().item_spacing = Vec2::splat(8.0);
                                             let is_running = running_status.is_some();
                                             let play_lbl = if is_running {
-                                                "Wird ausgeführt..."
+                                                "Running..."
                                             } else {
-                                                "Spiel starten"
+                                                "Launch Game"
                                             };
                                             if glass_primary_button(
                                                 ui,
@@ -290,9 +312,9 @@ pub fn show(
                                             }
 
                                             let fav_lbl = if game.is_favorite {
-                                                "Favorit"
+                                                "Favorited"
                                             } else {
-                                                "Favorisieren"
+                                                "Favorite"
                                             };
                                             if glass_pill_button(
                                                 ui,
@@ -314,7 +336,7 @@ pub fn show(
                                             if glass_secondary_button(
                                                 ui,
                                                 Some(IconKind::Edit),
-                                                "Bearbeiten",
+                                                "Edit",
                                                 true,
                                             )
                                             .clicked()
@@ -327,7 +349,7 @@ pub fn show(
                                                 if glass_secondary_button(
                                                     ui,
                                                     Some(IconKind::Trash),
-                                                    "Löschen",
+                                                    "Delete",
                                                     !is_running,
                                                 )
                                                 .clicked()
@@ -338,7 +360,7 @@ pub fn show(
                                                 if glass_danger_button(
                                                     ui,
                                                     Some(IconKind::Trash),
-                                                    "Wirklich löschen",
+                                                    "Confirm Delete",
                                                     true,
                                                 )
                                                 .clicked()
@@ -350,7 +372,7 @@ pub fn show(
                                                 if glass_secondary_button(
                                                     ui,
                                                     None,
-                                                    "Abbrechen",
+                                                    "Cancel",
                                                     true,
                                                 )
                                                 .clicked()
@@ -380,7 +402,7 @@ pub fn show(
                                     });
                                 }
 
-                                // 3 Monochrom-Telemetrie-KPI-Karten
+                                // 3 Monochrome Telemetry KPI Cards
                                 ui.add_space(16.0);
                                 let card_w = ((ui.available_width() - 20.0) / 3.0).max(140.0);
                                 ui.horizontal(|ui| {
@@ -389,9 +411,9 @@ pub fn show(
                                         ui,
                                         card_w,
                                         IconKind::Clock,
-                                        "Gesamtspielzeit",
+                                        "Total Playtime",
                                         if running_status.is_some() {
-                                            "AKTIV"
+                                            "ACTIVE"
                                         } else {
                                             "TOTAL"
                                         },
@@ -401,7 +423,7 @@ pub fn show(
                                         ui,
                                         card_w,
                                         IconKind::Refresh,
-                                        "Zuletzt gespielt",
+                                        "Last Played",
                                         "TIMELINE",
                                         &format_relative_date(game.last_played_at.as_deref()),
                                     );
@@ -415,7 +437,7 @@ pub fn show(
                                     );
                                 });
 
-                                // Launch-Konfiguration
+                                // Launch Configuration
                                 ui.add_space(16.0);
                                 glass_well_frame().show(ui, |ui| {
                                     ui.set_width(ui.available_width());
@@ -429,7 +451,7 @@ pub fn show(
                                             IconKind::Terminal,
                                             TEXT_SECONDARY,
                                         );
-                                        section_overline(ui, "Launch-Konfiguration");
+                                        section_overline(ui, "Launch Configuration");
                                     });
                                     ui.add_space(8.0);
 
@@ -442,10 +464,10 @@ pub fn show(
                                         let fallback = if let Some(ref app_id) = game.steam_app_id
                                         {
                                             format!(
-                                                "Direktstart über Steam-Client (-applaunch {app_id})"
+                                                "Direct launch via Steam client (-applaunch {app_id})"
                                             )
                                         } else {
-                                            "Direktstart über Systemstarter".to_string()
+                                            "Direct launch via system launcher".to_string()
                                         };
                                         ui.label(
                                             egui::RichText::new(fallback)
@@ -454,37 +476,37 @@ pub fn show(
                                         );
                                     } else {
                                         if let Some(ref exe) = game.executable_path {
-                                            detail_kv_row(ui, "Ausführbare Datei", exe);
+                                            detail_kv_row(ui, "Executable", exe);
                                         }
                                         if let Some(ref dir) = game.install_dir {
-                                            detail_kv_row(ui, "Installationspfad", dir);
+                                            detail_kv_row(ui, "Install Directory", dir);
                                         }
                                         if let Some(ref wd) = game.working_dir {
-                                            detail_kv_row(ui, "Arbeitsverzeichnis", wd);
+                                            detail_kv_row(ui, "Working Directory", wd);
                                         }
                                         if let Some(ref args) = game.launch_args {
-                                            detail_kv_row(ui, "Start-Argumente", args);
+                                            detail_kv_row(ui, "Launch Arguments", args);
                                         }
                                     }
                                 });
 
-                                // Session-Verlauf
+                                // Session History
                                 ui.add_space(14.0);
                                 glass_well_frame().show(ui, |ui| {
                                     ui.set_width(ui.available_width());
-                                    section_overline(ui, "Letzte Sessions");
+                                    section_overline(ui, "Recent Sessions");
                                     ui.add_space(8.0);
 
                                     if state.loading_sessions {
                                         ui.label(
-                                            egui::RichText::new("Lade Sessions...")
+                                            egui::RichText::new("Loading sessions...")
                                                 .size(12.0)
                                                 .color(TEXT_DIM),
                                         );
                                     } else if state.sessions.is_empty() {
                                         ui.label(
                                             egui::RichText::new(
-                                                "Noch keine aufgezeichneten Spielsessions vorhanden.",
+                                                "No recorded play sessions yet.",
                                             )
                                             .size(12.0)
                                             .color(TEXT_DIM),
@@ -531,7 +553,7 @@ pub fn show(
                                                                                     .duration_seconds,
                                                                             )
                                                                         } else {
-                                                                            "Aktiv".to_string()
+                                                                            "Active".to_string()
                                                                         };
                                                                         ui.label(
                                                                             egui::RichText::new(

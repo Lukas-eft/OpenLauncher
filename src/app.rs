@@ -180,7 +180,7 @@ impl OpenLauncherApp {
             Ok(games) => self.games = games,
             Err(err) => self.push_toast(
                 ToastVariant::Error,
-                "Bibliothek konnte nicht geladen werden",
+                "Failed to load library",
                 Some(err.to_string()),
             ),
         }
@@ -283,9 +283,9 @@ impl OpenLauncherApp {
                     if event.duration_seconds > 0 {
                         self.push_toast(
                             ToastVariant::Info,
-                            "Session gespeichert",
+                            "Session saved",
                             Some(format!(
-                                "Spielzeit aufgezeichnet: {}",
+                                "Playtime recorded: {}",
                                 format_duration_exact(event.duration_seconds)
                             )),
                         );
@@ -314,12 +314,12 @@ impl OpenLauncherApp {
                                     } else {
                                         ToastVariant::Success
                                     };
-                                let suffix = if res.scanned_libraries == 1 { "" } else { "en" };
+                                let suffix = if res.scanned_libraries == 1 { "y" } else { "ies" };
                                 self.push_toast(
                                     variant,
-                                    "Steam-Scan abgeschlossen",
+                                    "Steam scan complete",
                                     Some(format!(
-                                        "{} neu hinzugefügt, {} aktualisiert ({} Spiele in {} Bibliothek{suffix}).",
+                                        "{} added, {} updated ({} games across {} librar{suffix}).",
                                         res.added_games,
                                         res.updated_games,
                                         res.found_games,
@@ -331,15 +331,48 @@ impl OpenLauncherApp {
                         Err(err) => {
                             self.push_toast(
                                 ToastVariant::Error,
-                                "Steam-Scan fehlgeschlagen",
+                                "Steam scan failed",
                                 Some(err.to_string()),
                             );
                         }
                     }
                 }
                 AppMessage::PresetsLoaded(presets) => {
+                    let mut auto_scan: Option<(String, String, Option<String>, String, bool)> =
+                        None;
                     if let Some(ref mut form) = self.form_modal {
                         form.apply_loaded_presets(presets);
+                        if let Some(preset) = form.selected_preset().cloned() {
+                            if let Some(first_dir) = preset.detected_rom_dirs.first() {
+                                let emu_exe = {
+                                    let t = form.emu_exe_path.trim();
+                                    if t.is_empty() {
+                                        None
+                                    } else {
+                                        Some(t.to_string())
+                                    }
+                                };
+                                form.emu_scan_busy = true;
+                                auto_scan = Some((
+                                    preset.id,
+                                    preset.name,
+                                    emu_exe,
+                                    first_dir.clone(),
+                                    form.emu_fullscreen,
+                                ));
+                            }
+                        }
+                    }
+                    if let Some((preset_id, preset_name, emu_exe, rom_dir, fullscreen)) = auto_scan
+                    {
+                        self.spawn_scan_emulator_folder(
+                            preset_id,
+                            preset_name,
+                            emu_exe,
+                            rom_dir,
+                            fullscreen,
+                            ctx,
+                        );
                     }
                 }
                 AppMessage::EmulatorFolderScanned {
@@ -360,7 +393,7 @@ impl OpenLauncherApp {
                     if let Some(ref mut form) = self.form_modal {
                         form.set_discover_results(
                             items,
-                            "Keine installierten Steam-, Epic- oder GOG-Spiele gefunden.",
+                            "No installed Steam, Epic, GOG, or emulator games found.",
                         );
                     }
                 }
@@ -369,7 +402,7 @@ impl OpenLauncherApp {
                         match result {
                             Ok(items) => form.set_discover_results(
                                 items,
-                                "In diesem Ordner wurden keine Spiele gefunden.",
+                                "No games found in this folder.",
                             ),
                             Err(err) => {
                                 form.discover_busy = false;
@@ -415,7 +448,13 @@ impl OpenLauncherApp {
                         }
                         _ => AddModalTab::Discover,
                     };
-                    self.form_modal = Some(GameFormState::new_add(tab.unwrap_or(fallback_tab)));
+                    let chosen_tab = tab.unwrap_or(fallback_tab);
+                    let mut form = GameFormState::new_add(chosen_tab);
+                    if chosen_tab == AddModalTab::Discover {
+                        form.discover_busy = true;
+                        self.spawn_scan_pc_stores(ctx);
+                    }
+                    self.form_modal = Some(form);
                     self.spawn_load_presets(ctx);
                 }
                 AppAction::OpenEditModal(game) => {
@@ -457,7 +496,7 @@ impl OpenLauncherApp {
                         Err(err) => {
                             self.push_toast(
                                 ToastVariant::Error,
-                                "Favorit konnte nicht aktualisiert werden",
+                                "Failed to update favorite",
                                 Some(err.to_string()),
                             );
                         }
@@ -478,7 +517,7 @@ impl OpenLauncherApp {
                             self.form_modal = None;
                             self.push_toast(
                                 ToastVariant::Success,
-                                "Spiel hinzugefügt",
+                                "Game added",
                                 Some(created.title),
                             );
                         }
@@ -489,7 +528,7 @@ impl OpenLauncherApp {
                             }
                             self.push_toast(
                                 ToastVariant::Error,
-                                "Spiel konnte nicht erstellt werden",
+                                "Failed to create game",
                                 Some(err.to_string()),
                             );
                         }
@@ -507,7 +546,7 @@ impl OpenLauncherApp {
                             self.form_modal = None;
                             self.push_toast(
                                 ToastVariant::Success,
-                                "Änderungen gespeichert",
+                                "Changes saved",
                                 Some(updated.title),
                             );
                         }
@@ -518,7 +557,7 @@ impl OpenLauncherApp {
                             }
                             self.push_toast(
                                 ToastVariant::Error,
-                                "Änderungen konnten nicht gespeichert werden",
+                                "Failed to save changes",
                                 Some(err.to_string()),
                             );
                         }
@@ -536,12 +575,12 @@ impl OpenLauncherApp {
                         Ok(res) => {
                             self.refresh_library();
                             let skip_info = if res.skipped_count > 0 {
-                                format!(", {} bereits vorhanden", res.skipped_count)
+                                format!(", {} already in library", res.skipped_count)
                             } else {
                                 String::new()
                             };
                             let desc = if !res.errors.is_empty() {
-                                Some(format!("{} Fehler{skip_info}", res.errors.len()))
+                                Some(format!("{} errors{skip_info}", res.errors.len()))
                             } else if !skip_info.is_empty() {
                                 Some(skip_info.trim_start_matches(", ").to_string())
                             } else {
@@ -554,12 +593,12 @@ impl OpenLauncherApp {
                                     ToastVariant::Info
                                 },
                                 format!(
-                                    "{} {} importiert",
+                                    "Imported {} {}",
                                     res.added_count,
                                     if res.added_count == 1 {
-                                        "Spiel"
+                                        "game"
                                     } else {
-                                        "Spiele"
+                                        "games"
                                     }
                                 ),
                                 desc,
@@ -577,7 +616,7 @@ impl OpenLauncherApp {
                             }
                             self.push_toast(
                                 ToastVariant::Error,
-                                "Import fehlgeschlagen",
+                                "Import failed",
                                 Some(err.to_string()),
                             );
                         }
@@ -588,7 +627,7 @@ impl OpenLauncherApp {
                         Ok(saved) => {
                             self.settings = saved;
                             self.settings_modal = None;
-                            self.push_toast(ToastVariant::Success, "Einstellungen gespeichert", None);
+                            self.push_toast(ToastVariant::Success, "Settings saved", None);
                         }
                         Err(err) => {
                             if let Some(ref mut modal) = self.settings_modal {
@@ -596,7 +635,7 @@ impl OpenLauncherApp {
                             }
                             self.push_toast(
                                 ToastVariant::Error,
-                                "Einstellungen konnten nicht gespeichert werden",
+                                "Failed to save settings",
                                 Some(err.to_string()),
                             );
                         }
@@ -675,7 +714,7 @@ impl OpenLauncherApp {
             Err(err) => {
                 self.push_toast(
                     ToastVariant::Error,
-                    "Spiel konnte nicht gestartet werden",
+                    "Failed to launch game",
                     Some(err.to_string()),
                 );
                 return;
@@ -692,14 +731,14 @@ impl OpenLauncherApp {
                 self.running_games.insert(status.game_id.clone(), status);
                 self.push_toast(
                     ToastVariant::Success,
-                    format!("{title} wird gestartet"),
-                    Some("Playtime-Tracking ist aktiv.".to_string()),
+                    format!("Launching {title}"),
+                    Some("Playtime tracking is active.".to_string()),
                 );
             }
             Err(err) => {
                 self.push_toast(
                     ToastVariant::Error,
-                    format!("{title} konnte nicht gestartet werden"),
+                    format!("Failed to launch {title}"),
                     Some(err.to_string()),
                 );
             }
@@ -710,8 +749,8 @@ impl OpenLauncherApp {
         if self.tracker.is_running(game_id) {
             self.push_toast(
                 ToastVariant::Error,
-                "Löschen fehlgeschlagen",
-                Some("Ein aktuell laufendes Spiel kann nicht gelöscht werden".to_string()),
+                "Delete failed",
+                Some("Cannot delete a currently running game".to_string()),
             );
             return;
         }
@@ -720,7 +759,7 @@ impl OpenLauncherApp {
             Err(err) => {
                 self.push_toast(
                     ToastVariant::Error,
-                    "Löschen fehlgeschlagen",
+                    "Delete failed",
                     Some(err.to_string()),
                 );
                 return;
@@ -729,7 +768,7 @@ impl OpenLauncherApp {
         if let Err(err) = self.db.delete_game(game_id) {
             self.push_toast(
                 ToastVariant::Error,
-                "Löschen fehlgeschlagen",
+                "Delete failed",
                 Some(err.to_string()),
             );
             return;
@@ -741,7 +780,7 @@ impl OpenLauncherApp {
         }
         self.detail_modal = None;
         self.refresh_library();
-        self.push_toast(ToastVariant::Info, "Spiel entfernt", Some(existing.title));
+        self.push_toast(ToastVariant::Info, "Game removed", Some(existing.title));
     }
 
     fn spawn_load_presets(&self, ctx: &egui::Context) {
@@ -823,9 +862,9 @@ impl OpenLauncherApp {
             PendingDialog::EmulatorBinary => {
                 let mut fd = FileDialog::new()
                     .set_parent(frame)
-                    .set_title("Emulator-Programmdatei auswählen");
+                    .set_title("Select Emulator Executable");
                 if cfg!(target_os = "windows") {
-                    fd = fd.add_filter("Programme", &["exe"]);
+                    fd = fd.add_filter("Executables", &["exe"]);
                 }
                 if let Some(path) = fd.pick_file() {
                     if let Some(ref mut form) = self.form_modal {
@@ -837,7 +876,7 @@ impl OpenLauncherApp {
             PendingDialog::EmulatorRomDir { preset_name } => {
                 if let Some(dir) = FileDialog::new()
                     .set_parent(frame)
-                    .set_title(format!("{preset_name}-Spieleordner auswählen"))
+                    .set_title(format!("Select {preset_name} Games Folder"))
                     .pick_folder()
                 {
                     if let Some(ref mut form) = self.form_modal {
@@ -873,9 +912,9 @@ impl OpenLauncherApp {
             } => {
                 let mut fd = FileDialog::new()
                     .set_parent(frame)
-                    .set_title(format!("{preset_name}-Spiel auswählen"));
+                    .set_title(format!("Select {preset_name} Game"));
                 if !extensions.is_empty() {
-                    fd = fd.add_filter(format!("{preset_name}-Spiele"), &extensions);
+                    fd = fd.add_filter(format!("{preset_name} Games"), &extensions);
                 }
                 if let Some(rom_path) = fd.pick_file() {
                     match discovery::inspect_game_file(&rom_path) {
@@ -896,7 +935,7 @@ impl OpenLauncherApp {
             PendingDialog::PcGamesFolder => {
                 if let Some(dir) = FileDialog::new()
                     .set_parent(frame)
-                    .set_title(r"Spiele-Ordner auswählen (z. B. D:\Games)")
+                    .set_title(r"Select Games Folder (e.g. D:\Games)")
                     .pick_folder()
                 {
                     if let Some(ref mut form) = self.form_modal {
@@ -909,9 +948,9 @@ impl OpenLauncherApp {
             PendingDialog::ExecutableForInspect => {
                 let fd = FileDialog::new()
                     .set_parent(frame)
-                    .set_title("Spiel-Datei oder Emulator auswählen")
+                    .set_title("Select Game File or Emulator")
                     .add_filter(
-                        "Spiele & Starter",
+                        "Games & Launchers",
                         &[
                             "exe", "desktop", "appimage", "wua", "wux", "wud", "rpx", "nsp",
                             "xci", "rvz", "iso", "chd", "3ds", "gba", "bin", "pkg",
@@ -935,7 +974,7 @@ impl OpenLauncherApp {
             PendingDialog::WorkingDir => {
                 if let Some(dir) = FileDialog::new()
                     .set_parent(frame)
-                    .set_title("Arbeitsverzeichnis auswählen")
+                    .set_title("Select Working Directory")
                     .pick_folder()
                 {
                     if let Some(ref mut form) = self.form_modal {
@@ -946,8 +985,8 @@ impl OpenLauncherApp {
             PendingDialog::LocalCover => {
                 let fd = FileDialog::new()
                     .set_parent(frame)
-                    .set_title("Cover-Bild auswählen")
-                    .add_filter("Bilder", &["png", "jpg", "jpeg", "webp", "gif", "avif"]);
+                    .set_title("Select Cover Image")
+                    .add_filter("Images", &["png", "jpg", "jpeg", "webp", "gif", "avif"]);
                 if let Some(img_path) = fd.pick_file() {
                     match copy_cover_to_dir(&img_path, &self.covers_dir) {
                         Ok(stored) => {
@@ -968,7 +1007,7 @@ impl OpenLauncherApp {
             PendingDialog::SteamDir => {
                 if let Some(dir) = FileDialog::new()
                     .set_parent(frame)
-                    .set_title("Steam-Installationsordner auswählen")
+                    .set_title("Select Steam Installation Folder")
                     .pick_folder()
                 {
                     if let Some(ref mut settings_modal) = self.settings_modal {
@@ -1099,38 +1138,7 @@ impl eframe::App for OpenLauncherApp {
                 );
             });
 
-        // 4. Modals & Overlays
-        let top_overlay_active = self.form_modal.is_some()
-            || self.settings_modal.is_some()
-            || self.command_palette.is_open;
-
-        if let Some(ref mut detail_state) = self.detail_modal {
-            if let Some(game) = self.games.iter().find(|g| g.id == detail_state.game_id) {
-                let running = self.running_games.get(&game.id);
-                detail_modal::show(
-                    ctx,
-                    detail_state,
-                    game,
-                    running,
-                    !top_overlay_active,
-                    &mut actions,
-                );
-            } else {
-                self.detail_modal = None;
-            }
-        }
-
-        if let Some(ref mut form_state) = self.form_modal {
-            game_form_modal::show(ctx, form_state, &self.tags, &mut actions);
-            if form_state.close_requested_flag {
-                self.form_modal = None;
-            }
-        }
-
-        if let Some(ref mut settings_state) = self.settings_modal {
-            settings_modal::show(ctx, settings_state, self.is_scanning_steam, &mut actions);
-        }
-
+        // 4. Modals & Overlays (render only the single topmost active modal)
         if self.command_palette.is_open {
             command_palette::show(
                 ctx,
@@ -1139,6 +1147,27 @@ impl eframe::App for OpenLauncherApp {
                 &self.running_games,
                 &mut actions,
             );
+        } else if let Some(ref mut form_state) = self.form_modal {
+            game_form_modal::show(ctx, form_state, &self.tags, &mut actions);
+            if form_state.close_requested_flag {
+                self.form_modal = None;
+            }
+        } else if let Some(ref mut settings_state) = self.settings_modal {
+            settings_modal::show(ctx, settings_state, self.is_scanning_steam, &mut actions);
+        } else if let Some(ref mut detail_state) = self.detail_modal {
+            if let Some(game) = self.games.iter().find(|g| g.id == detail_state.game_id) {
+                let running = self.running_games.get(&game.id);
+                detail_modal::show(
+                    ctx,
+                    detail_state,
+                    game,
+                    running,
+                    true,
+                    &mut actions,
+                );
+            } else {
+                self.detail_modal = None;
+            }
         }
 
         toasts::show(ctx, &self.toasts, &mut actions);

@@ -64,7 +64,7 @@ pub fn show(
                     .show(ui, |ui| {
                         ui.horizontal(|ui| {
                             ui.label(
-                                egui::RichText::new("Einstellungen")
+                                egui::RichText::new("Settings")
                                     .size(16.0)
                                     .strong()
                                     .color(Color32::WHITE),
@@ -110,7 +110,7 @@ pub fn show(
                                 ui.vertical(|ui| {
                                     ui.set_max_width(ui.available_width() - 52.0);
                                     ui.label(
-                                        egui::RichText::new("In System-Tray minimieren")
+                                        egui::RichText::new("Minimize to System Tray")
                                             .size(13.0)
                                             .strong()
                                             .color(TEXT_PRIMARY),
@@ -118,7 +118,7 @@ pub fn show(
                                     ui.add_space(2.0);
                                     ui.label(
                                         egui::RichText::new(
-                                            "Schließen des Fensters versteckt OpenLauncher im Tray, sodass laufendes Playtime-Tracking aktiv bleibt.",
+                                            "Closing the window hides OpenLauncher in the tray so active playtime tracking continues.",
                                         )
                                         .size(11.5)
                                         .color(TEXT_MUTED),
@@ -140,7 +140,7 @@ pub fn show(
                                 ui.vertical(|ui| {
                                     ui.set_max_width(ui.available_width() - 52.0);
                                     ui.label(
-                                        egui::RichText::new("Steam beim Start scannen")
+                                        egui::RichText::new("Scan Steam on Startup")
                                             .size(13.0)
                                             .strong()
                                             .color(TEXT_PRIMARY),
@@ -148,7 +148,7 @@ pub fn show(
                                     ui.add_space(2.0);
                                     ui.label(
                                         egui::RichText::new(
-                                            "Synchronisiert installierte Steam-Spiele automatisch beim Start der App.",
+                                            "Automatically syncs installed Steam games when launching the app.",
                                         )
                                         .size(11.5)
                                         .color(TEXT_MUTED),
@@ -163,11 +163,11 @@ pub fn show(
                             });
                         });
 
-                        // Option 3: Benutzerdefinierter Steam-Pfad
+                        // Option 3: Custom Steam Path
                         glass_well_frame().show(ui, |ui| {
                             ui.set_width(ui.available_width());
                             ui.label(
-                                egui::RichText::new("Benutzerdefinierter Steam-Pfad (optional)")
+                                egui::RichText::new("Custom Steam Path (optional)")
                                     .size(13.0)
                                     .strong()
                                     .color(TEXT_PRIMARY),
@@ -175,7 +175,7 @@ pub fn show(
                             ui.add_space(2.0);
                             ui.label(
                                 egui::RichText::new(
-                                    "Leer lassen für automatische Erkennung über Windows-Registry bzw. Standardpfade.",
+                                    "Leave empty for automatic detection via Windows Registry and default paths.",
                                 )
                                 .size(11.5)
                                 .color(TEXT_MUTED),
@@ -189,7 +189,7 @@ pub fn show(
                                 glass_text_edit(
                                     ui,
                                     &mut state.custom_steam_path,
-                                    "Automatische Erkennung",
+                                    "Automatic detection",
                                     true,
                                     Some(input_w),
                                 );
@@ -197,7 +197,7 @@ pub fn show(
                                 if glass_secondary_button(
                                     ui,
                                     Some(IconKind::Folder),
-                                    "Ordner",
+                                    "Folder",
                                     true,
                                 )
                                 .clicked()
@@ -222,9 +222,9 @@ pub fn show(
 
                             ui.add_space(8.0);
                             let scan_label = if is_scanning_steam {
-                                "Scanne Steam..."
+                                "Scanning Steam..."
                             } else {
-                                "Steam-Bibliotheken jetzt scannen"
+                                "Scan Steam Libraries Now"
                             };
                             if glass_secondary_button(
                                 ui,
@@ -245,9 +245,9 @@ pub fn show(
                                 egui::Layout::right_to_left(egui::Align::Center),
                                 |ui| {
                                     let save_label = if state.is_saving {
-                                        "Speichere..."
+                                        "Saving..."
                                     } else {
-                                        "Speichern"
+                                        "Save"
                                     };
                                     if glass_primary_button(ui, None, save_label, !state.is_saving)
                                         .clicked()
@@ -266,7 +266,7 @@ pub fn show(
                                         }));
                                     }
 
-                                    if glass_secondary_button(ui, None, "Abbrechen", true)
+                                    if glass_secondary_button(ui, None, "Cancel", true)
                                         .clicked()
                                     {
                                         actions.push(AppAction::CloseSettings);
