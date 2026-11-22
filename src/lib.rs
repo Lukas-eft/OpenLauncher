@@ -1,0 +1,13 @@
+pub mod app;
+pub mod covers;
+pub mod db;
+pub mod discovery;
+pub mod error;
+pub mod format;
+pub mod fuzzy;
+pub mod launcher;
+pub mod models;
+pub mod steam;
+pub mod theme;
+pub mod tray;
+pub mod ui;
