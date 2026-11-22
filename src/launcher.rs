@@ -200,6 +200,45 @@ impl PlaytimeTracker {
             return Ok(status);
         }
 
+        if let Some(apps_uri) = game
+            .launch_args
+            .as_deref()
+            .map(str::trim)
+            .filter(|s| s.starts_with("shell:AppsFolder\\"))
+            .map(str::to_string)
+        {
+            Command::new("explorer.exe")
+                .arg(&apps_uri)
+                .spawn()
+                .map_err(|err| {
+                    AppError::Launch(format!(
+                        "Failed to launch Microsoft Store app '{apps_uri}': {err}"
+                    ))
+                })?;
+
+            let initial_started_at = Utc::now().to_rfc3339();
+            let status = ActiveGameStatus {
+                game_id: game.id.clone(),
+                title: game.title.clone(),
+                started_at: initial_started_at,
+                pid: None,
+            };
+
+            self.insert_active(status.clone())?;
+            emit_tracker_event(
+                &event_tx,
+                repaint_ctx.as_ref(),
+                TrackerEvent::Started(status.clone()),
+            );
+
+            let active_map = Arc::clone(&self.active);
+            thread::spawn(move || {
+                monitor_steam_game(game, db, event_tx, repaint_ctx, active_map);
+            });
+
+            return Ok(status);
+        }
+
         let raw_exe = game
             .executable_path
             .as_deref()

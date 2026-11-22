@@ -1268,6 +1268,14 @@ pub fn scan_pc_stores(
                 }
             }
         }
+
+        for mut item in scan_windows_minecraft() {
+            item.already_imported = existing_keys.contains_exe_args(
+                item.executable_path.as_deref(),
+                item.launch_args.as_deref(),
+            );
+            results.push(item);
+        }
     }
 
     // 3. Auto-detected emulator libraries (e.g. Cemu games & mlc01 titles)
@@ -1296,6 +1304,129 @@ pub fn scan_pc_stores(
 
     results.sort_by_key(|g| g.title.to_lowercase());
     results
+}
+
+#[cfg(target_os = "windows")]
+fn scan_windows_minecraft() -> Vec<DiscoveredGame> {
+    use winreg::enums::HKEY_CURRENT_USER;
+    use winreg::RegKey;
+
+    let mut out = Vec::new();
+    let mut found_launcher = false;
+
+    let hkcu = RegKey::predef(HKEY_CURRENT_USER);
+    if let Ok(packages) = hkcu.open_subkey(
+        r"Software\Classes\Local Settings\Software\Microsoft\Windows\CurrentVersion\AppModel\Repository\Packages",
+    ) {
+        let mut found_uwp = false;
+        for pkg_name in packages.enum_keys().flatten() {
+            let Ok(pkg) = packages.open_subkey(&pkg_name) else {
+                continue;
+            };
+            let root: Option<String> = pkg
+                .get_value::<String, _>("PackageRootFolder")
+                .ok()
+                .map(|s| s.trim().to_string())
+                .filter(|s| !s.is_empty());
+
+            if pkg_name.starts_with("Microsoft.4297127D64EC6_") && !found_launcher {
+                found_launcher = true;
+                let cover_path = root.as_deref().and_then(|r| {
+                    find_uwp_logo(Path::new(r), &["GraphicsLogo.png", "Logo.png", "StoreLogo.png"])
+                });
+                let has_java_profiles = dirs::config_dir()
+                    .map(|c| c.join(".minecraft").join("launcher_profiles.json").is_file())
+                    .unwrap_or(false);
+                let mut tags = vec!["Minecraft".to_string()];
+                if has_java_profiles {
+                    tags.push("Java Edition".to_string());
+                }
+
+                out.push(DiscoveredGame {
+                    title: "Minecraft Launcher".to_string(),
+                    platform: Platform::Manual,
+                    source: "Minecraft".to_string(),
+                    steam_app_id: None,
+                    executable_path: Some("explorer.exe".to_string()),
+                    install_dir: root,
+                    launch_args: Some(
+                        r"shell:AppsFolder\Microsoft.4297127D64EC6_8wekyb3d8bbwe!Minecraft"
+                            .to_string(),
+                    ),
+                    working_dir: None,
+                    cover_path,
+                    cover_url: None,
+                    hero_url: None,
+                    tags,
+                    already_imported: false,
+                });
+            } else if pkg_name.starts_with("Microsoft.MinecraftUWP_") && !found_uwp {
+                found_uwp = true;
+                let cover_path = root.as_deref().and_then(|r| {
+                    find_uwp_logo(Path::new(r), &["LargeLogo.png", "Logo.png", "StoreLogo.png"])
+                });
+                out.push(DiscoveredGame {
+                    title: "Minecraft for Windows".to_string(),
+                    platform: Platform::Manual,
+                    source: "Minecraft".to_string(),
+                    steam_app_id: None,
+                    executable_path: Some("explorer.exe".to_string()),
+                    install_dir: root,
+                    launch_args: Some(
+                        r"shell:AppsFolder\Microsoft.MinecraftUWP_8wekyb3d8bbwe!Game".to_string(),
+                    ),
+                    working_dir: None,
+                    cover_path,
+                    cover_url: None,
+                    hero_url: None,
+                    tags: vec!["Minecraft".to_string(), "Bedrock".to_string()],
+                    already_imported: false,
+                });
+            }
+        }
+    }
+
+    if !found_launcher {
+        for candidate in [
+            r"C:\Program Files (x86)\Minecraft Launcher\MinecraftLauncher.exe",
+            r"C:\XboxGames\Minecraft Launcher\Content\Minecraft.exe",
+        ] {
+            let p = Path::new(candidate);
+            if p.is_file() {
+                let dir = p.parent().map(|d| d.to_string_lossy().into_owned());
+                let cover = p.parent().and_then(find_nearby_cover).map(|c| c.to_string_lossy().into_owned());
+                out.push(DiscoveredGame {
+                    title: "Minecraft Launcher".to_string(),
+                    platform: Platform::Manual,
+                    source: "Minecraft".to_string(),
+                    steam_app_id: None,
+                    executable_path: Some(candidate.to_string()),
+                    install_dir: dir.clone(),
+                    launch_args: None,
+                    working_dir: dir,
+                    cover_path: cover,
+                    cover_url: None,
+                    hero_url: None,
+                    tags: vec!["Minecraft".to_string()],
+                    already_imported: false,
+                });
+                break;
+            }
+        }
+    }
+
+    out
+}
+
+#[cfg(target_os = "windows")]
+fn find_uwp_logo(root: &Path, names: &[&str]) -> Option<String> {
+    for name in names {
+        let p = root.join(name);
+        if p.is_file() {
+            return Some(p.to_string_lossy().into_owned());
+        }
+    }
+    None
 }
 
 #[cfg(target_os = "windows")]
