@@ -312,48 +312,65 @@ pub fn paint_icon(painter: &Painter, center: Pos2, size: f32, kind: IconKind, co
         }
         IconKind::Play => {
             let pts = vec![
-                Pos2::new(center.x - r * 0.42, center.y - r * 0.62),
-                Pos2::new(center.x + r * 0.66, center.y),
-                Pos2::new(center.x - r * 0.42, center.y + r * 0.62),
+                Pos2::new(center.x - r * 0.40, center.y - r * 0.56),
+                Pos2::new(center.x + r * 0.62, center.y),
+                Pos2::new(center.x - r * 0.40, center.y + r * 0.56),
             ];
-            painter.add(eframe::egui::Shape::convex_polygon(pts, color, Stroke::NONE));
+            painter.add(eframe::egui::Shape::closed_line(pts, stroke));
         }
         IconKind::Edit => {
+            // Crisp angled pencil outline
+            let pts = vec![
+                Pos2::new(center.x - r * 0.68, center.y + r * 0.68),
+                Pos2::new(center.x - r * 0.56, center.y + r * 0.22),
+                Pos2::new(center.x + r * 0.34, center.y - r * 0.68),
+                Pos2::new(center.x + r * 0.68, center.y - r * 0.34),
+                Pos2::new(center.x - r * 0.22, center.y + r * 0.56),
+            ];
+            painter.add(eframe::egui::Shape::closed_line(pts, stroke));
             painter.line_segment(
                 [
-                    Pos2::new(center.x - r * 0.64, center.y + r * 0.64),
-                    Pos2::new(center.x + r * 0.56, center.y - r * 0.56),
-                ],
-                stroke,
-            );
-            painter.line_segment(
-                [
-                    Pos2::new(center.x - r * 0.64, center.y + r * 0.64),
-                    Pos2::new(center.x - r * 0.24, center.y + r * 0.56),
+                    Pos2::new(center.x + r * 0.14, center.y - r * 0.48),
+                    Pos2::new(center.x + r * 0.48, center.y - r * 0.14),
                 ],
                 stroke,
             );
         }
         IconKind::Trash => {
+            // Lid
             painter.line_segment(
                 [
-                    Pos2::new(center.x - r * 0.72, center.y - r * 0.46),
-                    Pos2::new(center.x + r * 0.72, center.y - r * 0.46),
+                    Pos2::new(center.x - r * 0.68, center.y - r * 0.38),
+                    Pos2::new(center.x + r * 0.68, center.y - r * 0.38),
                 ],
                 stroke,
             );
-            let box_rect = Rect::from_min_max(
-                Pos2::new(center.x - r * 0.52, center.y - r * 0.42),
-                Pos2::new(center.x + r * 0.52, center.y + r * 0.68),
-            );
-            painter.rect_stroke(box_rect, 1.5, stroke, eframe::egui::StrokeKind::Inside);
-            painter.line_segment(
-                [
-                    Pos2::new(center.x - r * 0.24, center.y - r * 0.68),
-                    Pos2::new(center.x + r * 0.24, center.y - r * 0.68),
-                ],
-                stroke,
-            );
+            // Connected top handle
+            let handle = vec![
+                Pos2::new(center.x - r * 0.24, center.y - r * 0.38),
+                Pos2::new(center.x - r * 0.20, center.y - r * 0.68),
+                Pos2::new(center.x + r * 0.20, center.y - r * 0.68),
+                Pos2::new(center.x + r * 0.24, center.y - r * 0.38),
+            ];
+            painter.add(eframe::egui::Shape::line(handle, stroke));
+            // Bin body
+            let body = vec![
+                Pos2::new(center.x - r * 0.50, center.y - r * 0.38),
+                Pos2::new(center.x - r * 0.42, center.y + r * 0.68),
+                Pos2::new(center.x + r * 0.42, center.y + r * 0.68),
+                Pos2::new(center.x + r * 0.50, center.y - r * 0.38),
+            ];
+            painter.add(eframe::egui::Shape::line(body, stroke));
+            // Inner ribs
+            for dx in [-r * 0.16, r * 0.16] {
+                painter.line_segment(
+                    [
+                        Pos2::new(center.x + dx, center.y - r * 0.14),
+                        Pos2::new(center.x + dx, center.y + r * 0.44),
+                    ],
+                    stroke,
+                );
+            }
         }
         IconKind::Check => {
             painter.line_segment(
